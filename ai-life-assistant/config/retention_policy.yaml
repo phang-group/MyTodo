@@ -1,0 +1,6 @@
+# Data retention policy for AI Life Assistant MVP
+email_summaries: 180d
+full_email_content: 90d
+meeting_notes: 365d
+action_items: complete+30d
+encryption_keys: 90d
