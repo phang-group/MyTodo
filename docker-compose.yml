@@ -10,8 +10,9 @@ services:
       - mytodo-data:/data
     environment:
       DATABASE_URL: sqlite:////data/mytodo.db
-      SECRET_KEY: ${MYTODO_SECRET_KEY:-change-this-in-production}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      GATEWAY_URL: ${GATEWAY_URL:-http://app-gateway-1:8080}
+      PHANG_ADMIN_SECRET: ${PHANG_ADMIN_SECRET}
 
 volumes:
   mytodo-data:

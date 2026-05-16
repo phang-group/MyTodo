@@ -1,10 +1,7 @@
-from fastapi import APIRouter, Depends, Form, Request, HTTPException
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
-from database import get_db
-import models
-import auth as auth_utils
+import gateway_auth
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -20,18 +17,22 @@ async def login(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
-    db: Session = Depends(get_db),
 ):
-    user = db.query(models.User).filter(models.User.email == email.lower().strip()).first()
-    if not user or not auth_utils.verify_password(password, user.password_hash):
+    result = await gateway_auth._call_login(email.lower().strip(), password)
+    if not result:
         return templates.TemplateResponse(
             "login.html",
             {"request": request, "error": "Invalid email or password"},
             status_code=401,
         )
-    token = auth_utils.create_token(user.id)
     response = RedirectResponse(url="/", status_code=303)
-    response.set_cookie("mytodo_token", token, httponly=True, max_age=86400 * 30, samesite="lax")
+    response.set_cookie(
+        gateway_auth.COOKIE_NAME,
+        result["access_token"],
+        httponly=True,
+        max_age=86400 * 30,
+        samesite="lax",
+    )
     return response
 
 
@@ -46,37 +47,40 @@ async def register(
     name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
-    db: Session = Depends(get_db),
 ):
-    email = email.lower().strip()
-    if db.query(models.User).filter(models.User.email == email).first():
-        return templates.TemplateResponse(
-            "register.html",
-            {"request": request, "error": "Email already registered"},
-            status_code=400,
-        )
     if len(password) < 8:
         return templates.TemplateResponse(
             "register.html",
             {"request": request, "error": "Password must be at least 8 characters"},
             status_code=400,
         )
-    user = models.User(
-        email=email,
-        name=name.strip(),
-        password_hash=auth_utils.hash_password(password),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    token = auth_utils.create_token(user.id)
+    try:
+        result = await gateway_auth._call_register(email.lower().strip(), password, name.strip())
+    except ValueError:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Email already registered"},
+            status_code=400,
+        )
+    if not result:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Registration failed. Please try again."},
+            status_code=500,
+        )
     response = RedirectResponse(url="/onboarding", status_code=303)
-    response.set_cookie("mytodo_token", token, httponly=True, max_age=86400 * 30, samesite="lax")
+    response.set_cookie(
+        gateway_auth.COOKIE_NAME,
+        result["access_token"],
+        httponly=True,
+        max_age=86400 * 30,
+        samesite="lax",
+    )
     return response
 
 
 @router.post("/logout")
 async def logout():
     response = RedirectResponse(url="/login", status_code=303)
-    response.delete_cookie("mytodo_token")
+    response.delete_cookie(gateway_auth.COOKIE_NAME)
     return response
