@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  mytodo:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    volumes:
+      - mytodo-data:/data
+    environment:
+      DATABASE_URL: sqlite:////data/mytodo.db
+      SECRET_KEY: ${MYTODO_SECRET_KEY:-change-this-in-production}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+
+volumes:
+  mytodo-data:
