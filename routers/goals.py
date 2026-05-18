@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -10,7 +11,7 @@ import gateway_auth
 import ai_engine
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 
 
 @router.get("/onboarding", response_class=HTMLResponse)

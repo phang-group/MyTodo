@@ -2,7 +2,9 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./mytodo.db")
+# On Vercel the project root is read-only; /tmp is the only writable dir.
+# For persistence, set DATABASE_URL to a PostgreSQL connection string (e.g. Neon free tier).
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////tmp/mytodo.db")
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
@@ -19,5 +21,5 @@ def get_db():
 
 
 def init_db():
-    from models import User, Goal, StrategicState, DailyTask, ExecutionLog  # noqa
+    from models import Goal, StrategicState, DailyTask, ExecutionLog  # noqa
     Base.metadata.create_all(bind=engine)
