@@ -79,3 +79,38 @@ class ExecutionLog(Base):
     event = Column(String, nullable=False)   # task_done / task_skipped / goal_created / analysis_run
     notes = Column(Text, default="")
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ReflectionSession(Base):
+    """One progressive reflection Q&A session for a goal."""
+    __tablename__ = "reflection_sessions"
+
+    id = Column(Integer, primary_key=True)
+    gateway_user_id = Column(Integer, nullable=False, index=True)
+    goal_id = Column(Integer, ForeignKey("goals.id"), nullable=False)
+    session_number = Column(Integer, default=1)
+    domain = Column(String, default="")      # motivation|constraints|assets|leverage|timeline|identity
+    question = Column(Text, nullable=False)
+    answer = Column(Text, default="")
+    insights = Column(Text, default="[]")    # JSON list of insight strings
+    processed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    goal = relationship("Goal")
+
+    def insights_list(self):
+        return json.loads(self.insights or "[]")
+
+
+class CognitiveState(Base):
+    """Per-user cognitive trajectory state — updated after each reflection or analysis."""
+    __tablename__ = "cognitive_state"
+
+    id = Column(Integer, primary_key=True)
+    gateway_user_id = Column(Integer, unique=True, nullable=False, index=True)
+    goal_id = Column(Integer, ForeignKey("goals.id"), nullable=True)
+    trajectory_confidence = Column(Float, default=0.0)
+    goal_stability = Column(String, default="unknown")
+    momentum = Column(String, default="unknown")         # building|stable|declining
+    last_reflection_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -21,5 +21,5 @@ def get_db():
 
 
 def init_db():
-    from models import Goal, StrategicState, DailyTask, ExecutionLog  # noqa
+    from models import Goal, StrategicState, DailyTask, ExecutionLog, ReflectionSession, CognitiveState  # noqa
     Base.metadata.create_all(bind=engine)

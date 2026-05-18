@@ -312,6 +312,136 @@ async def refresh_tasks(
     return RedirectResponse(url=f"/goals/{goal_id}", status_code=303)
 
 
+@router.get("/goals/{goal_id}/reflect", response_class=HTMLResponse)
+async def reflect_page(
+    goal_id: int,
+    request: Request,
+    identity: dict = Depends(gateway_auth.require_identity),
+    db: Session = Depends(get_db),
+):
+    uid = identity["user_id"]
+    goal = db.query(models.Goal).filter_by(id=goal_id, gateway_user_id=uid).first()
+    if not goal:
+        raise HTTPException(status_code=404)
+
+    sessions = (
+        db.query(models.ReflectionSession)
+        .filter_by(goal_id=goal_id, gateway_user_id=uid)
+        .order_by(models.ReflectionSession.session_number)
+        .all()
+    )
+
+    # Build previous session history for the AI
+    previous = [
+        {"domain": s.domain, "question": s.question, "answer": s.answer}
+        for s in sessions if s.answer
+    ]
+    session_number = len(sessions) + 1
+
+    # Generate the next question (only if the last session is answered or no sessions yet)
+    pending = next((s for s in sessions if not s.answer), None)
+    if pending:
+        current_session = pending
+    else:
+        q_data = await ai_engine.generate_reflection_question(
+            goal_title=goal.title,
+            goal_description=goal.description,
+            previous_sessions=previous,
+            session_number=session_number,
+        )
+        if "error" in q_data:
+            raise HTTPException(status_code=502, detail=q_data["error"])
+
+        current_session = models.ReflectionSession(
+            gateway_user_id=uid,
+            goal_id=goal_id,
+            session_number=session_number,
+            domain=q_data.get("domain", ""),
+            question=q_data.get("question", ""),
+        )
+        db.add(current_session)
+        db.commit()
+        db.refresh(current_session)
+
+    return templates.TemplateResponse("reflect.html", {
+        "request": request,
+        "user": identity,
+        "goal": goal,
+        "current_session": current_session,
+        "sessions": sessions,
+        "session_number": current_session.session_number,
+    })
+
+
+@router.post("/goals/{goal_id}/reflect/{session_id}")
+async def submit_reflection(
+    goal_id: int,
+    session_id: int,
+    answer: str = Form(...),
+    identity: dict = Depends(gateway_auth.require_identity),
+    db: Session = Depends(get_db),
+):
+    uid = identity["user_id"]
+    session = db.query(models.ReflectionSession).filter_by(
+        id=session_id, goal_id=goal_id, gateway_user_id=uid
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404)
+
+    session.answer = answer.strip()
+    db.commit()
+
+    # Collect all previous insights across sessions for this goal
+    all_sessions = (
+        db.query(models.ReflectionSession)
+        .filter_by(goal_id=goal_id, gateway_user_id=uid)
+        .filter(models.ReflectionSession.processed == True)
+        .all()
+    )
+    previous_insights = []
+    for s in all_sessions:
+        previous_insights.extend(s.insights_list())
+
+    result = await ai_engine.process_reflection_answer(
+        goal_title=session.goal.title,
+        question=session.question,
+        answer=session.answer,
+        previous_insights=previous_insights,
+    )
+
+    session.insights = json.dumps(result.get("insights", []))
+    session.processed = True
+    db.commit()
+
+    # Update CognitiveState
+    state = db.query(models.CognitiveState).filter_by(gateway_user_id=uid).first()
+    if not state:
+        state = models.CognitiveState(gateway_user_id=uid, goal_id=goal_id)
+        db.add(state)
+    state.last_reflection_at = datetime.utcnow()
+    state.updated_at = datetime.utcnow()
+    db.commit()
+
+    # If the AI suggested refining the goal title, store it in the analysis blob
+    refinement = result.get("suggested_goal_refinement")
+    if refinement:
+        analysis = session.goal.analysis()
+        analysis["suggested_goal_refinement"] = refinement
+        session.goal.ai_analysis = json.dumps(analysis)
+        db.commit()
+
+    # Log the event
+    db.add(models.ExecutionLog(
+        gateway_user_id=uid,
+        goal_id=goal_id,
+        event="reflection_answered",
+        notes=f"Domain: {session.domain}. Insights: {len(result.get('insights', []))}",
+    ))
+    db.commit()
+
+    return RedirectResponse(url=f"/goals/{goal_id}/reflect", status_code=303)
+
+
 def _seed_daily_tasks(db, goal: models.Goal, analysis: dict, gateway_user_id: int):
     today = date.today()
     db.query(models.DailyTask).filter_by(goal_id=goal.id, for_date=today).delete()
