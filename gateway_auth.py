@@ -1,86 +1,65 @@
 """
-PHANG Shared Identity — gateway_auth.py (MyTodo)
-All authentication delegates to the PHANG Go gateway.
-No passwords, no JWTs issued here. This service verifies only.
+MyTodo local auth — single-user internal tool.
+Access code checked against MYTODO_ACCESS_CODE env var.
+No gateway calls. Sets a signed session cookie.
 """
+import hashlib
+import hmac
 import os
 from typing import Optional
 
-import httpx
 from fastapi import Cookie, Depends, HTTPException, status
 
-GATEWAY_URL = os.getenv("GATEWAY_URL", "http://app-gateway-1:8080")
-PHANG_ADMIN_SECRET = os.getenv("PHANG_ADMIN_SECRET", "")
-COOKIE_NAME = "phang_token"
+ACCESS_CODE   = os.getenv("MYTODO_ACCESS_CODE", "humble")
+COOKIE_NAME   = "phang_token"
+_SECRET       = os.getenv("MYTODO_COOKIE_SECRET", "mytodo-internal-secret")
+
+# Fixed identity for the single owner — no gateway needed
+_OWNER_IDENTITY = {
+    "user_id": 1,
+    "email":   os.getenv("MYTODO_OWNER_EMAIL", "admin@infopro.ng"),
+    "name":    os.getenv("MYTODO_OWNER_NAME", "Boluwatife"),
+    "valid":   True,
+}
 
 
-async def _call_verify(token: str) -> Optional[dict]:
-    """Hit gateway /api/auth/verify. Returns {user_id, email, name} or None."""
-    if not token or not PHANG_ADMIN_SECRET:
-        return None
+def _sign(value: str) -> str:
+    return hmac.new(_SECRET.encode(), value.encode(), hashlib.sha256).hexdigest()
+
+
+def _make_cookie() -> str:
+    payload = "authenticated"
+    return f"{payload}.{_sign(payload)}"
+
+
+def _verify_cookie(token: str) -> bool:
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            r = await client.get(
-                f"{GATEWAY_URL}/api/auth/verify",
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "X-Admin-Secret": PHANG_ADMIN_SECRET,
-                },
-            )
-        if r.status_code == 200:
-            data = r.json()
-            return data if data.get("valid") else None
+        payload, sig = token.rsplit(".", 1)
+        return hmac.compare_digest(_sign(payload), sig) and payload == "authenticated"
     except Exception:
-        return None
-    return None
+        return False
 
 
-async def _call_login(email: str, password: str) -> Optional[dict]:
-    """Proxy login to gateway. Returns {access_token, ...} or None."""
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.post(
-                f"{GATEWAY_URL}/api/auth/login",
-                json={"email": email, "password": password},
-            )
-        if r.status_code == 200:
-            return r.json()
-    except Exception:
-        return None
-    return None
+def check_access_code(code: str) -> bool:
+    """Return True if code matches MYTODO_ACCESS_CODE."""
+    return hmac.compare_digest(code.strip(), ACCESS_CODE)
 
 
-async def _call_register(email: str, password: str, name: str) -> Optional[dict]:
-    """Proxy registration to gateway. Returns {access_token, ...} or None.
-    Raises ValueError('email_exists') on HTTP 409."""
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.post(
-                f"{GATEWAY_URL}/api/auth/register",
-                json={"email": email, "password": password, "name": name},
-            )
-        if r.status_code in (200, 201):
-            return r.json()
-        if r.status_code == 409:
-            raise ValueError("email_exists")
-    except ValueError:
-        raise
-    except Exception:
-        return None
-    return None
+def make_session_cookie() -> str:
+    return _make_cookie()
 
 
 async def get_current_identity(
     phang_token: Optional[str] = Cookie(default=None),
 ) -> Optional[dict]:
-    """FastAPI dependency. Returns {user_id, email, name} or None."""
-    return await _call_verify(phang_token)
+    if phang_token and _verify_cookie(phang_token):
+        return _OWNER_IDENTITY
+    return None
 
 
 async def require_identity(
     identity: Optional[dict] = Depends(get_current_identity),
 ) -> dict:
-    """FastAPI dependency. Redirects to /login if not authenticated."""
     if not identity:
         raise HTTPException(
             status_code=status.HTTP_303_SEE_OTHER,

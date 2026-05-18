@@ -16,66 +16,22 @@ async def login_page(request: Request, error: str = ""):
 @router.post("/login")
 async def login(
     request: Request,
-    email: str = Form(...),
     password: str = Form(...),
 ):
-    result = await gateway_auth._call_login(email.lower().strip(), password)
-    if not result:
+    if not gateway_auth.check_access_code(password):
         return templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "Invalid email or password"},
+            {"request": request, "error": "Incorrect access code"},
             status_code=401,
         )
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
         gateway_auth.COOKIE_NAME,
-        result["access_token"],
+        gateway_auth.make_session_cookie(),
         httponly=True,
         max_age=86400 * 30,
         samesite="lax",
-    )
-    return response
-
-
-@router.get("/register", response_class=HTMLResponse)
-async def register_page(request: Request, error: str = ""):
-    return templates.TemplateResponse("register.html", {"request": request, "error": error})
-
-
-@router.post("/register")
-async def register(
-    request: Request,
-    name: str = Form(...),
-    email: str = Form(...),
-    password: str = Form(...),
-):
-    if len(password) < 8:
-        return templates.TemplateResponse(
-            "register.html",
-            {"request": request, "error": "Password must be at least 8 characters"},
-            status_code=400,
-        )
-    try:
-        result = await gateway_auth._call_register(email.lower().strip(), password, name.strip())
-    except ValueError:
-        return templates.TemplateResponse(
-            "register.html",
-            {"request": request, "error": "Email already registered"},
-            status_code=400,
-        )
-    if not result:
-        return templates.TemplateResponse(
-            "register.html",
-            {"request": request, "error": "Registration failed. Please try again."},
-            status_code=500,
-        )
-    response = RedirectResponse(url="/onboarding", status_code=303)
-    response.set_cookie(
-        gateway_auth.COOKIE_NAME,
-        result["access_token"],
-        httponly=True,
-        max_age=86400 * 30,
-        samesite="lax",
+        secure=True,
     )
     return response
 
