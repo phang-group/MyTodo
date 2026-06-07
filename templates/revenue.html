@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Revenue — Founder OS{% endblock %}
+
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">Revenue</h1>
+    <p class="text-gray-400 text-sm mt-0.5">Every naira earned, by initiative.</p>
+  </div>
+  <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
+    class="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-700">
+    + Record
+  </button>
+</div>
+
+<!-- Total + per-initiative breakdown -->
+<div class="mb-6">
+  <div class="bg-gray-900 text-white rounded-2xl p-5 mb-4">
+    <div class="text-xs text-gray-400 mb-1">Total revenue</div>
+    <div class="text-4xl font-bold">₦{{ "{:,.0f}".format(total) }}</div>
+  </div>
+
+  {% if initiatives %}
+  <div class="grid sm:grid-cols-2 gap-3">
+    {% for ini in initiatives if ini.revenue_total and ini.revenue_total > 0 %}
+    <a href="/initiatives/{{ ini.id }}"
+      class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center justify-between hover:border-gray-300 transition-colors">
+      <div>
+        <div class="font-semibold text-gray-900 text-sm">{{ ini.name }}</div>
+        <div class="text-xs text-gray-400 mt-0.5">{{ ini.stage }}</div>
+      </div>
+      <div class="text-right">
+        <div class="font-bold text-green-700">₦{{ "{:,.0f}".format(ini.revenue_total) }}</div>
+        {% if ini.users_count %}
+        <div class="text-xs text-gray-400">{{ ini.users_count }} users</div>
+        {% endif %}
+      </div>
+    </a>
+    {% else %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{% if records %}
+<!-- Recent records -->
+<div>
+  <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Records</h2>
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+    {% for record in records %}
+    <div class="flex items-center gap-4 px-5 py-3">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-semibold text-green-700">₦{{ "{:,.0f}".format(record.amount) }}</span>
+          <span class="text-xs text-gray-400">{{ record.source }}</span>
+          {% if record.initiative %}
+          <span class="text-xs text-gray-500">· {{ record.initiative.name }}</span>
+          {% endif %}
+        </div>
+        {% if record.notes %}
+        <div class="text-xs text-gray-400 mt-0.5">{{ record.notes }}</div>
+        {% endif %}
+      </div>
+      <div class="text-xs text-gray-400 flex-shrink-0">
+        {{ record.recorded_at.strftime('%b %d') }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% else %}
+<div class="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+  <h3 class="font-semibold text-gray-700 mb-2">No revenue recorded yet</h3>
+  <p class="text-gray-400 text-sm mb-4">Record every payment — consulting, subscriptions, one-offs.</p>
+  <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
+    class="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-700">
+    Record first revenue
+  </button>
+</div>
+{% endif %}
+
+<!-- Add modal -->
+<div id="add-modal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-end sm:items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md p-6">
+    <h3 class="font-bold text-gray-900 mb-4">Record revenue</h3>
+    <form action="/revenue" method="post" class="space-y-4">
+      <div>
+        <label class="text-xs font-medium text-gray-600">Initiative</label>
+        <select name="initiative_id" required class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+          <option value="">— select —</option>
+          {% for ini in initiatives %}
+          <option value="{{ ini.id }}">{{ ini.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-medium text-gray-600">Amount (NGN)</label>
+          <input name="amount" type="number" min="1" step="any" required placeholder="50000"
+            class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600">Source</label>
+          <select name="source" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+            {% for s in sources %}
+            <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">Notes <span class="text-gray-400 font-normal">(optional)</span></label>
+        <input name="notes" placeholder="e.g. Client name, invoice ref"
+          class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+      </div>
+      <div class="flex gap-3">
+        <button type="submit" class="flex-1 bg-gray-900 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-700">Record</button>
+        <button type="button" onclick="document.getElementById('add-modal').classList.add('hidden')"
+          class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-50">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

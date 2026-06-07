@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}{{ initiative.name }} — Founder OS{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="flex items-start justify-between mb-6">
+  <div>
+    <a href="/" class="text-xs text-gray-400 hover:text-gray-600 mb-1 block">← Overview</a>
+    <h1 class="text-xl font-bold text-gray-900">{{ initiative.name }}</h1>
+    <p class="text-gray-400 text-sm mt-0.5">{{ initiative.stage }} · {{ initiative.category }}</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <button onclick="document.getElementById('edit-modal').classList.remove('hidden')"
+      class="text-sm px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50">
+      Edit
+    </button>
+  </div>
+</div>
+
+<!-- Score cards -->
+<div class="grid grid-cols-3 gap-3 mb-6">
+  {% for label, score, color, bg, text in [
+    ('Build', initiative.build_score, 'bg-blue-500', 'bg-blue-50', 'text-blue-700'),
+    ('Distribute', initiative.distribution_score, 'bg-amber-500', 'bg-amber-50', 'text-amber-700'),
+    ('Revenue', initiative.revenue_score, 'bg-green-500', 'bg-green-50', 'text-green-700')
+  ] %}
+  <div class="{{ bg }} rounded-2xl p-4">
+    <div class="text-xs {{ text }} font-semibold mb-1">{{ label }}</div>
+    <div class="text-3xl font-bold {{ text }}">{{ score }}</div>
+    <div class="text-xs {{ text }} opacity-60">/ 100</div>
+    <div class="mt-2 bg-white bg-opacity-50 rounded-full h-1.5">
+      <div class="{{ color }} h-1.5 rounded-full transition-all" style="width: {{ score }}%"></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Bottleneck callout -->
+{% if initiative.bottleneck %}
+<div class="mb-6 flex items-center gap-3 p-4 rounded-xl
+  {% if initiative.bottleneck == 'distribution' %}bg-amber-50 border border-amber-100
+  {% elif initiative.bottleneck == 'revenue' %}bg-red-50 border border-red-100
+  {% else %}bg-blue-50 border border-blue-100{% endif %}">
+  <div class="text-sm font-medium
+    {% if initiative.bottleneck == 'distribution' %}text-amber-800
+    {% elif initiative.bottleneck == 'revenue' %}text-red-800
+    {% else %}text-blue-800{% endif %}">
+    Bottleneck: <strong>{{ initiative.bottleneck }}</strong>
+  </div>
+  {% if initiative.bottleneck == 'distribution' %}
+  <a href="/distribution" class="ml-auto text-xs bg-amber-700 text-white px-3 py-1 rounded-lg hover:bg-amber-800">Add distribution action</a>
+  {% elif initiative.bottleneck == 'revenue' %}
+  <a href="/revenue" class="ml-auto text-xs bg-red-700 text-white px-3 py-1 rounded-lg hover:bg-red-800">Record revenue</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if initiative.revenue_total and initiative.revenue_total > 0 %}
+<div class="mb-6 p-4 bg-green-50 border border-green-100 rounded-xl">
+  <span class="text-sm text-green-700 font-semibold">₦{{ "{:,.0f}".format(initiative.revenue_total) }} total revenue</span>
+  {% if initiative.users_count %}
+  <span class="text-sm text-green-600 ml-3">{{ initiative.users_count }} users</span>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Notes grid -->
+{% if initiative.build_notes or initiative.distribution_notes or initiative.revenue_notes %}
+<div class="grid sm:grid-cols-3 gap-3 mb-6">
+  {% for label, notes, color in [
+    ('Build', initiative.build_notes, 'text-blue-700'),
+    ('Distribution', initiative.distribution_notes, 'text-amber-700'),
+    ('Revenue', initiative.revenue_notes, 'text-green-700')
+  ] %}
+  {% if notes %}
+  <div class="bg-white rounded-xl border border-gray-100 p-4">
+    <div class="text-xs font-semibold {{ color }} mb-2">{{ label }} notes</div>
+    <p class="text-sm text-gray-600">{{ notes }}</p>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="grid sm:grid-cols-2 gap-6">
+
+  <!-- Tasks -->
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold text-gray-900 text-sm">Tasks</h2>
+      <button onclick="document.getElementById('add-task-modal').classList.remove('hidden')"
+        class="text-xs text-gray-500 hover:text-gray-800">+ Add</button>
+    </div>
+
+    {% if open_tasks %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50 mb-3">
+      {% for task in open_tasks %}
+      <div class="flex items-center gap-3 px-4 py-3" id="task-{{ task.id }}">
+        <button onclick="doneTask({{ task.id }}, this, {{ initiative.id }})"
+          class="w-4 h-4 rounded border-2 flex-shrink-0 border-gray-300 hover:border-gray-700 transition-colors">
+        </button>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm text-gray-900">{{ task.title }}</div>
+          {% if task.notes %}
+          <div class="text-xs text-gray-400 mt-0.5">{{ task.notes }}</div>
+          {% endif %}
+        </div>
+        <span class="text-xs px-1.5 py-0.5 rounded flex-shrink-0
+          {% if task.category == 'distribution' %}bg-amber-50 text-amber-600
+          {% elif task.category == 'revenue' %}bg-green-50 text-green-700
+          {% elif task.priority == 'critical' %}bg-red-50 text-red-600
+          {% else %}bg-gray-100 text-gray-500{% endif %}">
+          {{ task.category }}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl border border-gray-100 p-6 text-center mb-3">
+      <p class="text-sm text-gray-400">No open tasks.</p>
+    </div>
+    {% endif %}
+
+    {% if done_tasks %}
+    <div class="text-xs text-gray-400 mb-2">Recently done</div>
+    <div class="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
+      {% for task in done_tasks[:5] %}
+      <div class="flex items-center gap-3 px-4 py-2.5 opacity-50">
+        <div class="w-4 h-4 rounded bg-gray-300 flex-shrink-0"></div>
+        <div class="text-sm text-gray-600 line-through">{{ task.title }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Distribution actions -->
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold text-gray-900 text-sm">Distribution</h2>
+      <a href="/distribution" class="text-xs text-gray-500 hover:text-gray-800">Manage all</a>
+    </div>
+
+    {% if pending_dist %}
+    <div class="bg-white rounded-2xl border border-amber-100 shadow-sm divide-y divide-gray-50 mb-3">
+      {% for action in pending_dist %}
+      <div class="px-4 py-3">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded">{{ action.channel }}</span>
+          {% if action.ai_suggested %}<span class="text-xs text-purple-600">PHANT</span>{% endif %}
+        </div>
+        <p class="text-sm text-gray-700">{{ action.description }}</p>
+        <form action="/distribution/{{ action.id }}/complete" method="post" class="mt-2">
+          <button class="text-xs text-green-700 hover:text-green-900 font-medium">Mark done</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl border border-gray-100 p-6 text-center mb-3">
+      <p class="text-sm text-gray-400 mb-2">No pending distribution actions.</p>
+      <a href="/distribution" class="text-xs text-amber-600 hover:text-amber-800">Add one</a>
+    </div>
+    {% endif %}
+
+    {% if completed_dist %}
+    <div class="text-xs text-gray-400 mb-2">Completed</div>
+    <div class="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
+      {% for action in completed_dist[:4] %}
+      <div class="flex items-center gap-2 px-4 py-2.5 opacity-50">
+        <span class="text-xs text-gray-400">{{ action.channel }}</span>
+        <span class="text-sm text-gray-600 truncate">{{ action.description[:50] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Edit modal -->
+<div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-end sm:items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-screen overflow-y-auto p-6">
+    <h3 class="font-bold text-gray-900 mb-4">Edit {{ initiative.name }}</h3>
+    <form action="/initiatives/{{ initiative.id }}/update" method="post" class="space-y-4">
+      <div>
+        <label class="text-xs font-medium text-gray-600">Name</label>
+        <input name="name" value="{{ initiative.name }}" required
+          class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">Stage</label>
+        <select name="stage" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+          {% for s in ['ideation','building','launched','distributing','revenue','paused'] %}
+          <option value="{{ s }}" {% if initiative.stage == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        {% for label, field, val in [
+          ('Build %', 'build_score', initiative.build_score),
+          ('Distribute %', 'distribution_score', initiative.distribution_score),
+          ('Revenue %', 'revenue_score', initiative.revenue_score)
+        ] %}
+        <div>
+          <label class="text-xs font-medium text-gray-600">{{ label }}</label>
+          <input name="{{ field }}" type="number" min="0" max="100" value="{{ val }}"
+            class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+        </div>
+        {% endfor %}
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">Build notes</label>
+        <textarea name="build_notes" rows="2"
+          class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">{{ initiative.build_notes }}</textarea>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">Distribution notes</label>
+        <textarea name="distribution_notes" rows="2"
+          class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">{{ initiative.distribution_notes }}</textarea>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">Revenue notes</label>
+        <textarea name="revenue_notes" rows="2"
+          class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">{{ initiative.revenue_notes }}</textarea>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">Active users</label>
+        <input name="users_count" type="number" min="0" value="{{ initiative.users_count }}"
+          class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="flex-1 bg-gray-900 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-700">Save</button>
+        <button type="button" onclick="document.getElementById('edit-modal').classList.add('hidden')"
+          class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-50">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add task modal -->
+<div id="add-task-modal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-end sm:items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md p-6">
+    <h3 class="font-bold text-gray-900 mb-4">Add task</h3>
+    <form action="/tasks" method="post" class="space-y-4">
+      <input type="hidden" name="initiative_id" value="{{ initiative.id }}">
+      <div>
+        <input name="title" placeholder="What needs to be done?" required autofocus
+          class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-medium text-gray-600">Category</label>
+          <select name="category" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            {% for c in ['build','distribution','revenue','ops','learning'] %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600">Priority</label>
+          <select name="priority" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            {% for p in ['critical','high','medium','low'] %}
+            <option value="{{ p }}" {% if p == 'high' %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button type="submit" class="flex-1 bg-gray-900 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-700">Add</button>
+        <button type="button" onclick="document.getElementById('add-task-modal').classList.add('hidden')"
+          class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-50">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function doneTask(taskId, btn, initiativeId) {
+  btn.disabled = true;
+  btn.classList.add('bg-gray-900', 'border-gray-900');
+  try {
+    await fetch('/tasks/' + taskId + '/done', {
+      method: 'POST',
+      headers: {'Accept': 'application/json'},
+    });
+    const row = document.getElementById('task-' + taskId);
+    if (row) { row.style.opacity = '0.3'; row.style.pointerEvents = 'none'; }
+  } catch(e) {
+    btn.disabled = false;
+    btn.classList.remove('bg-gray-900', 'border-gray-900');
+  }
+}
+</script>
+{% endblock %}

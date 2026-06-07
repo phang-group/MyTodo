@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Distribution — Founder OS{% endblock %}
+
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">Distribution</h1>
+    <p class="text-gray-400 text-sm mt-0.5">Close the gap between Build and Distribute.</p>
+  </div>
+  <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
+    class="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-700">
+    + Action
+  </button>
+</div>
+
+{% if pending %}
+<!-- Pending queue -->
+<div class="mb-8">
+  <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+    Pending — {{ pending|length }}
+  </h2>
+  <div class="space-y-3">
+    {% for action in pending %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+              {% if action.channel in ['x_post','twitter'] %}bg-gray-900 text-white
+              {% elif action.channel == 'reddit' %}bg-orange-100 text-orange-700
+              {% elif action.channel == 'youtube' %}bg-red-100 text-red-700
+              {% elif action.channel == 'linkedin' %}bg-blue-100 text-blue-700
+              {% elif action.channel == 'producthunt' %}bg-orange-100 text-orange-800
+              {% else %}bg-gray-100 text-gray-600{% endif %}">
+              {{ action.channel }}
+            </span>
+            {% if action.ai_suggested %}
+            <span class="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">PHANT</span>
+            {% endif %}
+            {% if action.initiative %}
+            <span class="text-xs text-gray-400">{{ action.initiative.name }}</span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-gray-800">{{ action.description }}</p>
+        </div>
+        <div class="flex flex-col gap-2 flex-shrink-0">
+          <form action="/distribution/{{ action.id }}/complete" method="post" class="flex flex-col gap-1">
+            <input type="hidden" name="impact_notes" value="">
+            <button type="submit"
+              class="text-xs bg-green-700 text-white px-3 py-1.5 rounded-lg hover:bg-green-800 font-medium">
+              Done
+            </button>
+          </form>
+          <form action="/distribution/{{ action.id }}/skip" method="post">
+            <button type="submit" class="text-xs text-gray-400 hover:text-gray-600 w-full text-center">skip</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% else %}
+<div class="bg-white rounded-2xl border border-gray-100 p-12 text-center mb-8">
+  <h3 class="font-semibold text-gray-700 mb-2">Queue is clear</h3>
+  <p class="text-gray-400 text-sm mb-4">Add distribution actions when you ship something new.</p>
+  <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
+    class="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-700">
+    Add action
+  </button>
+</div>
+{% endif %}
+
+{% if completed %}
+<!-- Completed -->
+<div>
+  <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Completed</h2>
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+    {% for action in completed %}
+    <div class="flex items-center gap-3 px-5 py-3">
+      <div class="w-4 h-4 rounded bg-green-500 flex-shrink-0 flex items-center justify-center">
+        <svg class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm text-gray-700">{{ action.description[:70] }}{% if action.description|length > 70 %}...{% endif %}</div>
+        <div class="text-xs text-gray-400 mt-0.5">
+          {{ action.channel }}
+          {% if action.initiative %} · {{ action.initiative.name }}{% endif %}
+          {% if action.completed_at %} · {{ action.completed_at.strftime('%b %d') }}{% endif %}
+        </div>
+      </div>
+      {% if action.ai_suggested %}
+      <span class="text-xs text-purple-500 flex-shrink-0">PHANT</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Add modal -->
+<div id="add-modal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-end sm:items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md p-6">
+    <h3 class="font-bold text-gray-900 mb-4">New distribution action</h3>
+    <form action="/distribution" method="post" class="space-y-4">
+      <div>
+        <label class="text-xs font-medium text-gray-600">Initiative</label>
+        <select name="initiative_id" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+          <option value="">— none —</option>
+          {% for ini in initiatives %}
+          <option value="{{ ini.id }}">{{ ini.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">Channel</label>
+        <select name="channel" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+          {% for c in channels %}
+          <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">What to do</label>
+        <textarea name="description" rows="3" required placeholder="Be specific: what to post, where, and the angle"
+          class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"></textarea>
+      </div>
+      <div class="flex gap-3">
+        <button type="submit" class="flex-1 bg-gray-900 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-700">Add</button>
+        <button type="button" onclick="document.getElementById('add-modal').classList.add('hidden')"
+          class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-50">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

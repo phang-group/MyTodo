@@ -24,7 +24,7 @@ async def login(
             {"request": request, "error": "Incorrect access code"},
             status_code=401,
         )
-    response = RedirectResponse(url="/", status_code=303)
+    response = RedirectResponse(url="/copilot", status_code=303)
     response.set_cookie(
         gateway_auth.COOKIE_NAME,
         gateway_auth.make_session_cookie(),

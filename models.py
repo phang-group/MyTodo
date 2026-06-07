@@ -1,3 +1,21 @@
+"""
+MyTodo Founder OS — Data Model
+
+Core entity: Initiative
+  An initiative is anything the founder is building, distributing, or monetising.
+  Examples: InfoPro, NextDoor, PHANG, Foodie AI, Canada Plan
+
+Every initiative tracks three dimensions:
+  Build Score        (0-100) — how much of the product is built
+  Distribution Score (0-100) — how actively it's being published/shared
+  Revenue Score      (0-100) — how much revenue it generates
+
+The gap between Build and Distribution is the most common bottleneck.
+PHANT reads these scores to generate attention-routing signals.
+
+No local User model. Identity comes from the PHANG gateway (gateway_user_id = int).
+"""
+
 import json
 from datetime import datetime, date
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Date, Float, ForeignKey
@@ -5,112 +23,194 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
-# No local User model. Identity comes from the PHANG gateway (user_id = gateway int).
-# All models use gateway_user_id (Integer, no FK to a local users table).
-
-
-class StrategicState(Base):
-    """User's current real-world state — the ground truth the AI reasons against."""
-    __tablename__ = "strategic_state"
+class Initiative(Base):
+    """
+    The atomic unit of founder execution.
+    One Initiative = one product, project, or bet the founder is running.
+    """
+    __tablename__ = "initiatives"
 
     id = Column(Integer, primary_key=True)
-    gateway_user_id = Column(Integer, unique=True, nullable=False, index=True)
-    monthly_income = Column(Float, default=0)        # NGN
-    monthly_expenses = Column(Float, default=0)      # NGN
-    savings = Column(Float, default=0)               # NGN total
-    skills = Column(Text, default="[]")              # JSON list of strings
-    constraints = Column(Text, default="[]")         # JSON list of strings
-    location = Column(String, default="Lagos, Nigeria")
-    employment_type = Column(String, default="employed")  # employed/self-employed/unemployed/student
-    notes = Column(Text, default="")
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    def skills_list(self):
-        return json.loads(self.skills or "[]")
-
-    def constraints_list(self):
-        return json.loads(self.constraints or "[]")
-
-
-class Goal(Base):
-    __tablename__ = "goals"
-
-    id = Column(Integer, primary_key=True, index=True)
     gateway_user_id = Column(Integer, nullable=False, index=True)
-    title = Column(String, nullable=False)
+
+    name = Column(String, nullable=False)           # "InfoPro", "NextDoor", "Foodie AI"
     description = Column(Text, default="")
-    target_date = Column(String, nullable=False)      # ISO date string
-    status = Column(String, default="active")         # active/paused/completed/abandoned
-    ai_analysis = Column(Text, default="{}")          # JSON blob from DeepSeek
+    category = Column(String, default="product")    # product / infra / platform / content / personal
+    stage = Column(String, default="building")      # ideation / building / launched / distributing / revenue / paused
+
+    # The three scores — each 0-100, manually set or AI-suggested
+    build_score = Column(Integer, default=0)
+    distribution_score = Column(Integer, default=0)
+    revenue_score = Column(Integer, default=0)
+
+    # Qualitative notes per dimension
+    build_notes = Column(Text, default="")           # what's been built
+    distribution_notes = Column(Text, default="")    # which channels are active
+    revenue_notes = Column(Text, default="")         # revenue sources and model
+
+    # Quantitative actuals
+    revenue_total = Column(Float, default=0.0)       # NGN, sum of all RevenueRecords
+    users_count = Column(Integer, default=0)         # active users
+
+    # AI intelligence from PHANT
+    bottleneck = Column(String, default="distribution")   # build / distribution / revenue
+    ai_brief = Column(Text, default="{}")            # JSON — latest PHANT analysis
+    ai_suggested_actions = Column(Text, default="[]")     # JSON list of pending PHANT suggestions
+
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    daily_tasks = relationship("DailyTask", back_populates="goal", cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="initiative", cascade="all, delete-orphan")
+    revenue_records = relationship("RevenueRecord", back_populates="initiative", cascade="all, delete-orphan")
+    distribution_actions = relationship("DistributionAction", back_populates="initiative", cascade="all, delete-orphan")
+    reflections = relationship("Reflection", back_populates="initiative", cascade="all, delete-orphan")
 
-    def analysis(self):
-        return json.loads(self.ai_analysis or "{}")
+    def ai_data(self) -> dict:
+        return json.loads(self.ai_brief or "{}")
+
+    def pending_actions(self) -> list:
+        return json.loads(self.ai_suggested_actions or "[]")
+
+    def compute_bottleneck(self) -> str:
+        """The dimension furthest below build_score is typically the bottleneck."""
+        build = self.build_score or 0
+        dist = self.distribution_score or 0
+        rev = self.revenue_score or 0
+        if build > dist and build > rev:
+            if dist <= rev:
+                return "distribution"
+            return "revenue"
+        if dist < rev:
+            return "distribution"
+        return "distribution"  # distribution is almost always the gap
 
 
-class DailyTask(Base):
-    __tablename__ = "daily_tasks"
+class Task(Base):
+    """
+    A discrete action tied to an initiative (or standalone).
+    Categories map directly to initiative dimensions.
+    """
+    __tablename__ = "tasks"
 
-    id = Column(Integer, primary_key=True, index=True)
-    goal_id = Column(Integer, ForeignKey("goals.id"), nullable=False)
+    id = Column(Integer, primary_key=True)
+    initiative_id = Column(Integer, ForeignKey("initiatives.id"), nullable=True)
     gateway_user_id = Column(Integer, nullable=False, index=True)
-    task = Column(String, nullable=False)
-    priority = Column(String, default="high")           # critical/high/medium
-    time_required = Column(String, default="")
-    consequence_if_skipped = Column(Text, default="")
+
+    title = Column(String, nullable=False)
+    notes = Column(Text, default="")
+    category = Column(String, default="build")    # build / distribution / revenue / ops / learning
+    priority = Column(String, default="high")     # critical / high / medium / low
+    status = Column(String, default="open")       # open / in_progress / done / skipped
+
     for_date = Column(Date, default=date.today)
-    done = Column(Boolean, default=False)
     done_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    goal = relationship("Goal", back_populates="daily_tasks")
+    initiative = relationship("Initiative", back_populates="tasks")
 
 
-class ExecutionLog(Base):
-    __tablename__ = "execution_log"
+class RevenueRecord(Base):
+    """A discrete revenue event. Summed into initiative.revenue_total on every write."""
+    __tablename__ = "revenue_records"
 
     id = Column(Integer, primary_key=True)
+    initiative_id = Column(Integer, ForeignKey("initiatives.id"), nullable=False)
     gateway_user_id = Column(Integer, nullable=False, index=True)
-    goal_id = Column(Integer, ForeignKey("goals.id"), nullable=True)
-    task_id = Column(Integer, ForeignKey("daily_tasks.id"), nullable=True)
-    event = Column(String, nullable=False)   # task_done / task_skipped / goal_created / analysis_run
+
+    amount = Column(Float, nullable=False)         # NGN
+    source = Column(String, default="")            # "subscription" / "consulting" / "client_payment"
     notes = Column(Text, default="")
+    recorded_at = Column(DateTime, default=datetime.utcnow)
+
+    initiative = relationship("Initiative", back_populates="revenue_records")
+
+
+class DistributionAction(Base):
+    """
+    A single distribution action: one post, one video, one broadcast.
+    Closing the gap between Build Score and Distribution Score means completing these.
+    """
+    __tablename__ = "distribution_actions"
+
+    id = Column(Integer, primary_key=True)
+    initiative_id = Column(Integer, ForeignKey("initiatives.id"), nullable=True)
+    gateway_user_id = Column(Integer, nullable=False, index=True)
+
+    channel = Column(String, nullable=False)       # x_post / reddit / youtube / devlog / whatsapp_broadcast / linkedin / producthunt / newsletter / other
+    description = Column(Text, default="")         # what to post/share
+    status = Column(String, default="pending")     # pending / completed / skipped
+    ai_suggested = Column(Boolean, default=False)  # PHANT-generated suggestion?
+    impact_notes = Column(Text, default="")        # filled after: what happened
+
+    completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    initiative = relationship("Initiative", back_populates="distribution_actions")
 
-class ReflectionSession(Base):
-    """One progressive reflection Q&A session for a goal."""
-    __tablename__ = "reflection_sessions"
+
+class Reflection(Base):
+    """A strategic reflection session tied to an initiative."""
+    __tablename__ = "reflections"
 
     id = Column(Integer, primary_key=True)
+    initiative_id = Column(Integer, ForeignKey("initiatives.id"), nullable=False)
     gateway_user_id = Column(Integer, nullable=False, index=True)
-    goal_id = Column(Integer, ForeignKey("goals.id"), nullable=False)
-    session_number = Column(Integer, default=1)
-    domain = Column(String, default="")      # motivation|constraints|assets|leverage|timeline|identity
+
     question = Column(Text, nullable=False)
     answer = Column(Text, default="")
-    insights = Column(Text, default="[]")    # JSON list of insight strings
+    domain = Column(String, default="")            # build / distribution / revenue / motivation / constraints
+    insights = Column(Text, default="[]")          # JSON list of extracted insights
+    session_number = Column(Integer, default=1)
     processed = Column(Boolean, default=False)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    goal = relationship("Goal")
+    initiative = relationship("Initiative", back_populates="reflections")
 
-    def insights_list(self):
+    def insights_list(self) -> list:
         return json.loads(self.insights or "[]")
 
 
-class CognitiveState(Base):
-    """Per-user cognitive trajectory state — updated after each reflection or analysis."""
-    __tablename__ = "cognitive_state"
+class DailyBrief(Base):
+    """One PHANT brief per calendar day, displayed on the dashboard."""
+    __tablename__ = "daily_briefs"
 
     id = Column(Integer, primary_key=True)
-    gateway_user_id = Column(Integer, unique=True, nullable=False, index=True)
-    goal_id = Column(Integer, ForeignKey("goals.id"), nullable=True)
-    trajectory_confidence = Column(Float, default=0.0)
-    goal_stability = Column(String, default="unknown")
-    momentum = Column(String, default="unknown")         # building|stable|declining
-    last_reflection_at = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    gateway_user_id = Column(Integer, nullable=False, index=True)
+    brief_date = Column(Date, nullable=False)
+
+    headline = Column(Text, default="")
+    content = Column(Text, default="{}")            # full JSON from PHANT engine
+    recommended_actions = Column(Text, default="[]")
+
+    deployments_count = Column(Integer, default=0)
+    new_users_count = Column(Integer, default=0)
+    ai_analyses_count = Column(Integer, default=0)
+    whatsapp_inquiries_count = Column(Integer, default=0)
+    revenue_events_count = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def content_data(self) -> dict:
+        return json.loads(self.content or "{}")
+
+    def actions_list(self) -> list:
+        return json.loads(self.recommended_actions or "[]")
+
+
+class ChatMessage(Base):
+    """Persistent conversation history for the Copilot chat interface."""
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True)
+    gateway_user_id = Column(Integer, nullable=False, index=True)
+    role = Column(String, nullable=False)           # "user" | "assistant"
+    content = Column(Text, nullable=False)
+    intent = Column(String, nullable=True)          # detected intent, if user message
+    actions_taken = Column(Text, default="[]")      # JSON list of state changes made
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def actions_list(self) -> list:
+        return json.loads(self.actions_taken or "[]")

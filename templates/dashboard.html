@@ -1,71 +1,131 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — MyTodo{% endblock %}
+{% block title %}Founder OS{% endblock %}
+
 {% block content %}
 
 <!-- Header -->
-<div class="flex items-start justify-between mb-8">
+<div class="flex items-start justify-between mb-6">
   <div>
-    <h1 class="text-2xl font-bold text-gray-900">{{ user.name }}</h1>
-    <p class="text-gray-500 text-sm mt-0.5">{{ today.strftime('%A, %B %d') }}</p>
+    <h1 class="text-xl font-bold text-gray-900">{{ user.name }}</h1>
+    <p class="text-gray-400 text-sm">{{ today.strftime('%A, %B %d') }}</p>
   </div>
   <div class="text-right">
-    <div class="text-2xl font-bold {% if completion_rate >= 70 %}text-green-600{% elif completion_rate >= 40 %}text-amber-600{% else %}text-red-600{% endif %}">{{ completion_rate }}%</div>
-    <div class="text-xs text-gray-400">7-day completion</div>
+    {% if total_revenue and total_revenue > 0 %}
+    <div class="text-lg font-bold text-green-700">₦{{ "{:,.0f}".format(total_revenue) }}</div>
+    <div class="text-xs text-gray-400">total revenue</div>
+    {% endif %}
   </div>
 </div>
 
-{% if not goal_data %}
-<!-- No goals -->
-<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-  <div class="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-    <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-    </svg>
+<!-- PHANT Brief -->
+{% if brief %}
+<div class="bg-gray-900 text-white rounded-2xl p-5 mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">PHANT — {{ brief.brief_date }}</span>
+    <a href="/brief" class="text-xs text-gray-500 hover:text-gray-300">Full brief</a>
   </div>
-  <h3 class="font-semibold text-gray-700 mb-2">No active goals</h3>
-  <p class="text-gray-400 text-sm mb-6">Define what you're working toward. The AI will build an execution system around your actual situation.</p>
-  <a href="/goals/new" class="bg-gray-900 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-gray-700">
-    Define First Goal
-  </a>
+  {% if brief.headline %}
+  <p class="text-sm text-gray-100 mb-3">{{ brief.headline }}</p>
+  {% endif %}
+  {% set actions = brief.actions_list() %}
+  {% if actions %}
+  <div class="space-y-1">
+    {% for action in actions[:3] %}
+    <div class="flex items-start gap-2 text-sm">
+      <span class="text-gray-500 mt-0.5 flex-shrink-0">{{ loop.index }}.</span>
+      <span class="text-gray-200">{{ action }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Initiatives grid -->
+{% if initiatives %}
+<div class="mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="font-semibold text-gray-900">Initiatives</h2>
+    <a href="/initiatives/new" class="text-sm bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700">+ New</a>
+  </div>
+  <div class="grid gap-3 sm:grid-cols-2">
+    {% for ini in initiatives %}
+    <a href="/initiatives/{{ ini.id }}" class="block bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:border-gray-300 transition-colors">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <div class="font-semibold text-gray-900 text-sm">{{ ini.name }}</div>
+          <div class="text-xs text-gray-400 mt-0.5">{{ ini.stage }}</div>
+        </div>
+        {% if ini.bottleneck %}
+        <span class="text-xs px-2 py-0.5 rounded-full
+          {% if ini.bottleneck == 'distribution' %}bg-amber-50 text-amber-700
+          {% elif ini.bottleneck == 'revenue' %}bg-red-50 text-red-700
+          {% else %}bg-blue-50 text-blue-700{% endif %}">
+          {{ ini.bottleneck }}
+        </span>
+        {% endif %}
+      </div>
+
+      <!-- Score bars -->
+      <div class="space-y-1.5">
+        {% for label, score, color in [
+          ('Build', ini.build_score, 'bg-blue-500'),
+          ('Distribute', ini.distribution_score, 'bg-amber-500'),
+          ('Revenue', ini.revenue_score, 'bg-green-500')
+        ] %}
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 w-16">{{ label }}</span>
+          <div class="flex-1 bg-gray-100 rounded-full h-1.5">
+            <div class="{{ color }} h-1.5 rounded-full transition-all" style="width: {{ score }}%"></div>
+          </div>
+          <span class="text-xs text-gray-500 w-8 text-right">{{ score }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if ini.revenue_total and ini.revenue_total > 0 %}
+      <div class="mt-2 text-xs text-green-700 font-medium">₦{{ "{:,.0f}".format(ini.revenue_total) }}</div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
 </div>
 
 {% else %}
+<!-- No initiatives -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center mb-6">
+  <h3 class="font-semibold text-gray-700 mb-2">No initiatives yet</h3>
+  <p class="text-gray-400 text-sm mb-6">An initiative is anything you are building, distributing, or monetising.</p>
+  <a href="/initiatives/new" class="bg-gray-900 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-gray-700">
+    Add First Initiative
+  </a>
+</div>
+{% endif %}
 
-<!-- Today's Tasks -->
+<!-- Today's tasks -->
 {% if today_tasks %}
 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6">
-  <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-    <h2 class="font-semibold text-gray-900">Today's Execution</h2>
-    <span class="text-xs text-gray-400">{{ today_tasks|selectattr('done')|list|length }}/{{ today_tasks|length }} done</span>
+  <div class="flex items-center justify-between px-5 py-3 border-b border-gray-50">
+    <h2 class="font-semibold text-gray-900 text-sm">Today</h2>
+    <span class="text-xs text-gray-400">{{ today_tasks|length }} open</span>
   </div>
   <div class="divide-y divide-gray-50">
-    {% for task in today_tasks %}
-    <div class="flex items-start gap-4 px-6 py-4 priority-{{ task.priority }} {% if task.done %}opacity-50{% endif %}" id="task-{{ task.id }}">
-      <button onclick="toggleTask({{ task.id }}, this)"
-        class="mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors
-          {% if task.done %}bg-gray-900 border-gray-900{% else %}border-gray-300 hover:border-gray-500{% endif %}">
-        {% if task.done %}
-        <svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-        </svg>
-        {% endif %}
+    {% for task in today_tasks[:8] %}
+    <div class="flex items-center gap-3 px-5 py-3" id="task-{{ task.id }}">
+      <button onclick="doneTask({{ task.id }}, this)"
+        class="w-4 h-4 rounded border-2 flex-shrink-0 border-gray-300 hover:border-gray-700 transition-colors">
       </button>
       <div class="flex-1 min-w-0">
-        <div class="text-sm font-medium text-gray-900 {% if task.done %}line-through{% endif %}">{{ task.task }}</div>
-        {% if task.time_required %}
-        <div class="text-xs text-gray-400 mt-0.5">{{ task.time_required }}</div>
-        {% endif %}
-        {% if task.consequence_if_skipped and not task.done %}
-        <div class="text-xs text-red-600 mt-1 bg-red-50 rounded-lg px-2 py-1">
-          If skipped: {{ task.consequence_if_skipped }}
-        </div>
+        <div class="text-sm text-gray-900">{{ task.title }}</div>
+        {% if task.initiative %}
+        <div class="text-xs text-gray-400 mt-0.5">{{ task.initiative.name }}</div>
         {% endif %}
       </div>
-      <span class="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0
-        {% if task.priority == 'critical' %}bg-red-100 text-red-700
-        {% elif task.priority == 'high' %}bg-amber-100 text-amber-700
-        {% else %}bg-gray-100 text-gray-600{% endif %}">
-        {{ task.priority }}
+      <span class="text-xs px-1.5 py-0.5 rounded
+        {% if task.category == 'distribution' %}bg-amber-50 text-amber-600
+        {% elif task.category == 'revenue' %}bg-green-50 text-green-700
+        {% else %}bg-gray-100 text-gray-500{% endif %}">
+        {{ task.category }}
       </span>
     </div>
     {% endfor %}
@@ -73,66 +133,47 @@
 </div>
 {% endif %}
 
-<!-- Active Goals -->
-<div class="space-y-4">
-  <h2 class="font-semibold text-gray-900">Active Goals</h2>
-  {% for gd in goal_data %}
-  {% set goal = gd.goal %}
-  {% set analysis = gd.analysis %}
-  <a href="/goals/{{ goal.id }}" class="block bg-white rounded-2xl border border-gray-100 shadow-sm p-6 hover:border-gray-300 transition-colors">
-    <div class="flex items-start justify-between mb-3">
-      <h3 class="font-semibold text-gray-900">{{ goal.title }}</h3>
-      <div class="text-right flex-shrink-0 ml-4">
-        <div class="text-xl font-bold
-          {% if gd.likelihood >= 70 %}text-green-600
-          {% elif gd.likelihood >= 40 %}text-amber-600
-          {% else %}text-red-600{% endif %}">
-          {{ gd.likelihood }}%
-        </div>
-        <div class="text-xs text-gray-400">likelihood</div>
+<!-- Distribution queue -->
+{% if pending_distribution %}
+<div class="bg-white rounded-2xl border border-amber-100 shadow-sm mb-6">
+  <div class="flex items-center justify-between px-5 py-3 border-b border-amber-50">
+    <h2 class="font-semibold text-gray-900 text-sm">Distribution Queue</h2>
+    <a href="/distribution" class="text-xs text-amber-600 hover:text-amber-800">View all</a>
+  </div>
+  <div class="divide-y divide-gray-50">
+    {% for action in pending_distribution %}
+    <div class="flex items-center gap-3 px-5 py-3">
+      <div class="flex-1 min-w-0">
+        <div class="text-sm text-gray-900">{{ action.description[:80] }}{% if action.description|length > 80 %}...{% endif %}</div>
+        <div class="text-xs text-gray-400 mt-0.5">{{ action.channel }}{% if action.initiative %} · {{ action.initiative.name }}{% endif %}</div>
       </div>
+      {% if action.ai_suggested %}
+      <span class="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded flex-shrink-0">PHANT</span>
+      {% endif %}
     </div>
-
-    {% if gd.best_move %}
-    <div class="bg-gray-50 rounded-xl px-4 py-3 mb-3">
-      <div class="text-xs font-semibold text-gray-500 mb-1">BEST MOVE TODAY</div>
-      <p class="text-sm text-gray-800">{{ gd.best_move }}</p>
-    </div>
-    {% endif %}
-
-    <div class="flex items-center gap-3 text-xs text-gray-400">
-      <span>Target: {{ goal.target_date }}</span>
-      <span>·</span>
-      <span class="{% if gd.on_track %}text-green-600{% else %}text-red-600{% endif %} font-medium">
-        {% if gd.on_track %}On track{% else %}Off track{% endif %}
-      </span>
-    </div>
-  </a>
-  {% endfor %}
+    {% endfor %}
+  </div>
 </div>
-
 {% endif %}
 
 {% endblock %}
+
 {% block scripts %}
 <script>
-  async function toggleTask(taskId, btn) {
-    const res = await fetch(`/tasks/${taskId}/toggle`, { method: 'POST' });
-    const data = await res.json();
-    const row = document.getElementById(`task-${taskId}`);
-    if (data.done) {
-      row.classList.add('opacity-50');
-      btn.classList.replace('border-gray-300', 'bg-gray-900');
-      btn.classList.add('border-gray-900');
-      btn.innerHTML = '<svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
-      row.querySelector('.text-sm.font-medium')?.classList.add('line-through');
-    } else {
-      row.classList.remove('opacity-50');
-      btn.classList.remove('bg-gray-900', 'border-gray-900');
-      btn.classList.add('border-gray-300');
-      btn.innerHTML = '';
-      row.querySelector('.text-sm.font-medium')?.classList.remove('line-through');
-    }
+async function doneTask(taskId, btn) {
+  btn.disabled = true;
+  btn.classList.add('bg-gray-900', 'border-gray-900');
+  try {
+    await fetch('/tasks/' + taskId + '/done', {
+      method: 'POST',
+      headers: {'Accept': 'application/json'},
+    });
+    const row = document.getElementById('task-' + taskId);
+    if (row) row.style.opacity = '0.4';
+  } catch(e) {
+    btn.disabled = false;
+    btn.classList.remove('bg-gray-900', 'border-gray-900');
   }
+}
 </script>
 {% endblock %}
