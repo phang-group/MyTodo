@@ -141,6 +141,9 @@ class Task(Base):
     """
     A discrete action tied to an initiative (or standalone).
     Categories map directly to initiative dimensions.
+
+    gateway_user_id = the user who created/owns this task.
+    visibility controls who else can see it.
     """
     __tablename__ = "tasks"
 
@@ -148,7 +151,10 @@ class Task(Base):
     initiative_id = Column(Integer, ForeignKey("initiatives.id"), nullable=True)
     gateway_user_id = Column(Integer, nullable=False, index=True)
 
-    # Phase 2: tasks can be assigned to a specific workspace member
+    # Visibility: "private" (owner only) | "team" (all approved) | "public"
+    visibility = Column(String(20), nullable=False, default="team")
+
+    # Optional assignment to a specific workspace member
     assigned_to_user_id = Column(Integer, ForeignKey("workspace_users.id"), nullable=True, index=True)
 
     title = Column(String, nullable=False)
@@ -166,12 +172,20 @@ class Task(Base):
 
 
 class RevenueRecord(Base):
-    """A discrete revenue event. Summed into initiative.revenue_total on every write."""
+    """
+    A discrete revenue event. Summed into initiative.revenue_total on every write.
+
+    visibility defaults to "private" — revenue is sensitive.
+    Founder can share entries with the team by setting visibility="team".
+    """
     __tablename__ = "revenue_records"
 
     id = Column(Integer, primary_key=True)
     initiative_id = Column(Integer, ForeignKey("initiatives.id"), nullable=False)
     gateway_user_id = Column(Integer, nullable=False, index=True)
+
+    # "private" (owner only) | "team" (all approved workspace members)
+    visibility = Column(String(20), nullable=False, default="private")
 
     amount = Column(Float, nullable=False)         # NGN
     source = Column(String, default="")            # "subscription" / "consulting" / "client_payment"
@@ -185,12 +199,17 @@ class DistributionAction(Base):
     """
     A single distribution action: one post, one video, one broadcast.
     Closing the gap between Build Score and Distribution Score means completing these.
+
+    visibility defaults to "team" — campaigns are collaborative knowledge.
     """
     __tablename__ = "distribution_actions"
 
     id = Column(Integer, primary_key=True)
     initiative_id = Column(Integer, ForeignKey("initiatives.id"), nullable=True)
     gateway_user_id = Column(Integer, nullable=False, index=True)
+
+    # "private" (owner only) | "team" (all approved) | "public"
+    visibility = Column(String(20), nullable=False, default="team")
 
     channel = Column(String, nullable=False)       # x_post / reddit / youtube / devlog / whatsapp_broadcast / linkedin / producthunt / newsletter / other
     description = Column(Text, default="")         # what to post/share

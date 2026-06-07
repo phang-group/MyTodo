@@ -1,9 +1,19 @@
 """
 Tasks router — discrete actions tied to initiatives.
 
-Phase 2 additions:
-  - assigned_to_user_id: tasks can be assigned to a specific workspace member
-  - Role-aware access: founder/coo see all tasks; staff see only assigned tasks
+OWNERSHIP MODEL (Phase 2):
+  gateway_user_id = the user who created/owns this task.
+  visibility controls who can see it:
+    private  → owner only
+    team     → all approved workspace members (default)
+    public   → all approved workspace members
+
+ACCESS RULES:
+  Create: any approved user (not viewer).
+  Read/complete/reopen/skip: owner, assigned user, or team/public visibility.
+  Delete: owner or founder.
+
+Roles control AUTHORITY, not product access.
 """
 
 import logging
@@ -13,6 +23,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 import gateway_auth
@@ -28,6 +39,9 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templa
 VALID_CATEGORIES = {"build", "distribution", "revenue", "ops", "learning"}
 VALID_PRIORITIES = {"critical", "high", "medium", "low"}
 
+# All approved users except Viewer can create/modify tasks
+_not_viewer = workspace_auth.require_role("founder", "coo", "staff")
+
 
 @router.post("/tasks")
 async def create_task(
@@ -37,8 +51,9 @@ async def create_task(
     category: str = Form(default="build"),
     priority: str = Form(default="high"),
     for_date: str = Form(default=""),
+    visibility: str = Form(default="team"),
     assigned_to: int = Form(default=None),    # workspace_user.id (optional)
-    identity: dict = Depends(workspace_auth.require_role("founder", "coo")),
+    identity: dict = Depends(_not_viewer),
     db: Session = Depends(get_db),
 ):
     uid = identity["uid"]
@@ -51,13 +66,14 @@ async def create_task(
             pass
 
     task = models.Task(
-        gateway_user_id=1,             # tasks always owned by founder workspace
+        gateway_user_id=uid,                  # owned by the creating user
         initiative_id=initiative_id or None,
         title=title.strip(),
         notes=notes.strip(),
         category=category if category in VALID_CATEGORIES else "build",
         priority=priority if priority in VALID_PRIORITIES else "high",
         for_date=parsed_date,
+        visibility=visibility if visibility in ("private", "team", "public") else "team",
         assigned_to_user_id=assigned_to or None,
     )
     db.add(task)
@@ -76,8 +92,8 @@ async def mark_done(
     db: Session = Depends(get_db),
 ):
     task = _get_task(db, task_id, identity)
-    task.status   = "done"
-    task.done_at  = datetime.utcnow()
+    task.status    = "done"
+    task.done_at   = datetime.utcnow()
     task.updated_at = datetime.utcnow()
     db.commit()
 
@@ -104,8 +120,8 @@ async def reopen_task(
     db: Session = Depends(get_db),
 ):
     task = _get_task(db, task_id, identity)
-    task.status   = "open"
-    task.done_at  = None
+    task.status    = "open"
+    task.done_at   = None
     task.updated_at = datetime.utcnow()
     db.commit()
     redirect = f"/initiatives/{task.initiative_id}" if task.initiative_id else "/"
@@ -129,10 +145,10 @@ async def skip_task(
 @router.post("/tasks/{task_id}/delete")
 async def delete_task(
     task_id: int,
-    identity: dict = Depends(workspace_auth.require_role("founder", "coo")),
+    identity: dict = Depends(_not_viewer),
     db: Session = Depends(get_db),
 ):
-    task = _get_task(db, task_id, identity)
+    task = _get_task(db, task_id, identity, require_owner=True)
     initiative_id = task.initiative_id
     db.delete(task)
     db.commit()
@@ -142,19 +158,42 @@ async def delete_task(
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
-def _get_task(db: Session, task_id: int, identity: dict) -> models.Task:
-    """Load task with role-based access control."""
+def _get_task(
+    db: Session, task_id: int, identity: dict, require_owner: bool = False
+) -> models.Task:
+    """
+    Load a task with visibility check.
+
+    Visibility rules:
+      Founder       → sees all tasks.
+      Other users   → see tasks they own, tasks assigned to them,
+                       or tasks with team/public visibility.
+
+    require_owner=True: only the owner or founder may proceed
+    (used for delete — you can't delete someone else's task).
+    """
     task = db.query(models.Task).filter_by(id=task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    role = identity["role"]
     uid  = identity["uid"]
+    role = identity["role"]
 
-    if role in ("founder", "coo"):
-        return task   # full access
+    # Founder override
+    if role == "founder":
+        return task
 
-    if role == "staff" and task.assigned_to_user_id == uid:
-        return task   # can act on their own assigned tasks
+    # Visibility: own task, assigned task, or team/public
+    can_see = (
+        task.gateway_user_id == uid
+        or task.assigned_to_user_id == uid
+        or task.visibility in ("team", "public")
+    )
+    if not can_see:
+        raise HTTPException(status_code=403, detail="Access denied")
 
-    raise HTTPException(status_code=403, detail="Access denied")
+    # For ownership-required operations (delete)
+    if require_owner and task.gateway_user_id != uid:
+        raise HTTPException(status_code=403, detail="Only the task owner can perform this action")
+
+    return task

@@ -63,14 +63,12 @@
       <div class="hidden sm:flex items-center gap-1 text-sm">
         <a href="/copilot" class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900">Copilot</a>
         <a href="/" class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900">Overview</a>
-        {% if user.role in ("founder", "coo") %}
         <a href="/distribution" class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900">Distribution</a>
-        {% endif %}
-        {% if user.role == "founder" %}
         <a href="/revenue" class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900">Revenue</a>
+        {% if user.role == "founder" %}
         <a href="/users" class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900">Team</a>
         {% endif %}
-        {% if user.role in ("founder", "coo") %}
+        {% if user.role != "viewer" %}
         <a href="/initiatives/new" class="ml-2 bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-700">+ Initiative</a>
         {% endif %}
         <div class="flex items-center gap-1 ml-2 text-xs text-gray-400">
@@ -80,9 +78,9 @@
           <button type="submit" class="text-gray-400 hover:text-gray-700 text-xs">Sign out</button>
         </form>
       </div>
-      <!-- Mobile: show + button if permitted -->
+      <!-- Mobile: show + button if not viewer -->
       <div class="sm:hidden flex items-center gap-2">
-        {% if user.role in ("founder", "coo") %}
+        {% if user.role != "viewer" %}
         <a href="/initiatives/new" class="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium">+</a>
         {% endif %}
       </div>
@@ -100,18 +98,16 @@
       <span class="text-xs">Home</span>
     </a>
 
-    <!-- Copilot (founder + coo only) -->
-    {% if user.role in ("founder", "coo") %}
+    <!-- Copilot — all approved users -->
     <a href="/copilot" class="flex-1 flex flex-col items-center py-2.5 text-gray-400 hover:text-gray-900" id="nav-copilot">
       <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
       </svg>
       <span class="text-xs">Copilot</span>
     </a>
-    {% endif %}
 
-    <!-- New Initiative (founder + coo) -->
-    {% if user.role in ("founder", "coo") %}
+    <!-- New Initiative — all non-viewers -->
+    {% if user.role != "viewer" %}
     <a href="/initiatives/new" class="flex-1 flex flex-col items-center py-2.5 text-gray-400 hover:text-gray-900" id="nav-initiatives">
       <div class="w-8 h-8 -mt-5 bg-gray-900 rounded-full flex items-center justify-center shadow-lg">
         <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -122,15 +118,13 @@
     </a>
     {% endif %}
 
-    <!-- Revenue (founder only) -->
-    {% if user.role == "founder" %}
+    <!-- Revenue — all approved users -->
     <a href="/revenue" class="flex-1 flex flex-col items-center py-2.5 text-gray-400 hover:text-gray-900" id="nav-revenue">
       <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
       <span class="text-xs">Revenue</span>
     </a>
-    {% endif %}
 
     <!-- Brief -->
     <a href="/daily-brief" class="flex-1 flex flex-col items-center py-2.5 text-gray-400 hover:text-gray-900" id="nav-brief">
@@ -148,7 +142,7 @@
   </main>
 
   <!-- ── PHANT elephant widget ──────────────────────────────────────────── -->
-  {% if user is defined and user and user.role in ("founder", "coo") %}
+  {% if user is defined and user %}
 
   <!-- Elephant toggle button -->
   <button

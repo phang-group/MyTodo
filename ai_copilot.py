@@ -118,7 +118,7 @@ Output ONLY valid JSON:
 
 
 async def _call_deepseek(system: str, user: str, max_tokens: int = 800) -> Optional[dict]:
-    api_key = os.getenv("DEEPSEEK_API_KEY", "")
+    api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
     if not api_key:
         return None
     try:
@@ -140,7 +140,7 @@ async def _call_deepseek(system: str, user: str, max_tokens: int = 800) -> Optio
             resp.raise_for_status()
             return json.loads(resp.json()["choices"][0]["message"]["content"])
     except Exception as e:
-        log.warning("[copilot] DeepSeek call failed: %s", e)
+        log.error("[copilot] DeepSeek call failed: %s — key_len=%d", e, len(api_key))
         return None
 
 

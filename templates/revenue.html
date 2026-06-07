@@ -6,12 +6,14 @@
 <div class="flex items-center justify-between mb-6">
   <div>
     <h1 class="text-xl font-bold text-gray-900">Revenue</h1>
-    <p class="text-gray-400 text-sm mt-0.5">Every naira earned, by initiative.</p>
+    <p class="text-gray-400 text-sm mt-0.5">Revenue visible to you, by initiative.</p>
   </div>
+  {% if can_record %}
   <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
     class="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-700">
     + Record
   </button>
+  {% endif %}
 </div>
 
 <!-- Total + per-initiative breakdown -->
@@ -51,11 +53,14 @@
     {% for record in records %}
     <div class="flex items-center gap-4 px-5 py-3">
       <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <span class="text-sm font-semibold text-green-700">₦{{ "{:,.0f}".format(record.amount) }}</span>
           <span class="text-xs text-gray-400">{{ record.source }}</span>
           {% if record.initiative %}
           <span class="text-xs text-gray-500">· {{ record.initiative.name }}</span>
+          {% endif %}
+          {% if record.visibility == "private" %}
+          <span class="text-xs text-gray-300 bg-gray-50 border border-gray-100 px-1.5 py-0.5 rounded">private</span>
           {% endif %}
         </div>
         {% if record.notes %}
@@ -72,12 +77,14 @@
 
 {% else %}
 <div class="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-  <h3 class="font-semibold text-gray-700 mb-2">No revenue recorded yet</h3>
-  <p class="text-gray-400 text-sm mb-4">Record every payment — consulting, subscriptions, one-offs.</p>
+  <h3 class="font-semibold text-gray-700 mb-2">No revenue visible yet</h3>
+  <p class="text-gray-400 text-sm mb-4">Record payments — consulting, subscriptions, one-offs.</p>
+  {% if can_record %}
   <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
     class="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-700">
     Record first revenue
   </button>
+  {% endif %}
 </div>
 {% endif %}
 
@@ -114,6 +121,14 @@
         <label class="text-xs font-medium text-gray-600">Notes <span class="text-gray-400 font-normal">(optional)</span></label>
         <input name="notes" placeholder="e.g. Client name, invoice ref"
           class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">Visibility</label>
+        <p class="text-xs text-gray-400 mb-1">Private keeps this entry visible only to you.</p>
+        <select name="visibility" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+          <option value="private" selected>Private — visible to me only</option>
+          <option value="team">Team — visible to all workspace members</option>
+        </select>
       </div>
       <div class="flex gap-3">
         <button type="submit" class="flex-1 bg-gray-900 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-700">Record</button>
