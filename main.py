@@ -4,13 +4,14 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from database import init_db
+from database import init_db, bootstrap_founder
 from routers import auth
 from routers.initiatives import router as initiatives_router
 from routers.tasks import router as tasks_router
 from routers.distribution import router as distribution_router
 from routers.revenue import router as revenue_router
 from routers.copilot import router as copilot_router
+from routers.users import router as users_router
 
 BASE_DIR = Path(__file__).parent
 
@@ -27,6 +28,7 @@ app.include_router(initiatives_router)
 app.include_router(tasks_router)
 app.include_router(distribution_router)
 app.include_router(revenue_router)
+app.include_router(users_router)
 
 
 @app.on_event("startup")
@@ -34,8 +36,10 @@ async def startup():
     try:
         init_db()
         log.info("MyTodo Founder OS started — database ready")
+        bootstrap_founder()
+        log.info("Founder bootstrap complete")
     except Exception as e:
-        log.error(f"MyTodo startup — database init failed: {e}")
+        log.error(f"MyTodo startup error: {e}")
 
 
 @app.exception_handler(303)

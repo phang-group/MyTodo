@@ -17,6 +17,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 import gateway_auth
+import workspace_auth
 import models
 from database import get_db
 from .events import emit_event
@@ -31,7 +32,7 @@ SOURCES = ["subscription", "consulting", "client_payment", "freelance", "product
 @router.get("/revenue", response_class=HTMLResponse)
 async def revenue_page(
     request: Request,
-    identity: dict = Depends(gateway_auth.require_identity),
+    identity: dict = Depends(workspace_auth.require_role("founder")),
     db: Session = Depends(get_db),
 ):
     uid = identity["user_id"]
@@ -65,7 +66,7 @@ async def record_revenue(
     amount: float = Form(...),
     source: str = Form(default="other"),
     notes: str = Form(default=""),
-    identity: dict = Depends(gateway_auth.require_identity),
+    identity: dict = Depends(workspace_auth.require_role("founder")),
     db: Session = Depends(get_db),
 ):
     uid = identity["user_id"]

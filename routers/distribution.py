@@ -15,9 +15,12 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 import gateway_auth
+import workspace_auth
 import models
 from database import get_db
 from .events import emit_event
+
+_coo_or_above = workspace_auth.require_role("founder", "coo")
 
 log = logging.getLogger("mytodo.distribution")
 router = APIRouter()
@@ -33,7 +36,7 @@ CHANNELS = [
 @router.get("/distribution", response_class=HTMLResponse)
 async def distribution_queue(
     request: Request,
-    identity: dict = Depends(gateway_auth.require_identity),
+    identity: dict = Depends(_coo_or_above),
     db: Session = Depends(get_db),
 ):
     uid = identity["user_id"]
@@ -71,7 +74,7 @@ async def create_distribution_action(
     initiative_id: int = Form(default=None),
     channel: str = Form(...),
     description: str = Form(...),
-    identity: dict = Depends(gateway_auth.require_identity),
+    identity: dict = Depends(_coo_or_above),
     db: Session = Depends(get_db),
 ):
     uid = identity["user_id"]
@@ -91,7 +94,7 @@ async def create_distribution_action(
 async def complete_action(
     action_id: int,
     impact_notes: str = Form(default=""),
-    identity: dict = Depends(gateway_auth.require_identity),
+    identity: dict = Depends(_coo_or_above),
     db: Session = Depends(get_db),
 ):
     uid = identity["user_id"]
@@ -114,7 +117,7 @@ async def complete_action(
 @router.post("/distribution/{action_id}/skip")
 async def skip_action(
     action_id: int,
-    identity: dict = Depends(gateway_auth.require_identity),
+    identity: dict = Depends(_coo_or_above),
     db: Session = Depends(get_db),
 ):
     uid = identity["user_id"]

@@ -23,6 +23,25 @@
     .priority-medium   { border-left: 3px solid #6B7280; }
     .nav-active        { color: #111827 !important; }
     .nav-active svg    { stroke: #111827; }
+
+    /* PHANT panel transitions */
+    #phant-panel {
+      transition: transform 0.25s ease-in-out, opacity 0.2s ease;
+    }
+    #phant-panel.panel-closed {
+      transform: translateY(100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    #phant-panel.panel-open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    @media (min-width: 640px) {
+      #phant-panel.panel-closed  { transform: translateX(100%); opacity: 0; }
+      #phant-panel.panel-open    { transform: translateX(0);    opacity: 1; }
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -44,16 +63,28 @@
       <div class="hidden sm:flex items-center gap-1 text-sm">
         <a href="/copilot" class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900">Copilot</a>
         <a href="/" class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900">Overview</a>
+        {% if user.role in ("founder", "coo") %}
         <a href="/distribution" class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900">Distribution</a>
+        {% endif %}
+        {% if user.role == "founder" %}
         <a href="/revenue" class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900">Revenue</a>
+        <a href="/users" class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900">Team</a>
+        {% endif %}
+        {% if user.role in ("founder", "coo") %}
         <a href="/initiatives/new" class="ml-2 bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-700">+ Initiative</a>
+        {% endif %}
+        <div class="flex items-center gap-1 ml-2 text-xs text-gray-400">
+          <span class="capitalize">{{ user.role }}</span>
+        </div>
         <form action="/logout" method="post" class="inline ml-2">
           <button type="submit" class="text-gray-400 hover:text-gray-700 text-xs">Sign out</button>
         </form>
       </div>
-      <!-- Mobile: show + button -->
+      <!-- Mobile: show + button if permitted -->
       <div class="sm:hidden flex items-center gap-2">
+        {% if user.role in ("founder", "coo") %}
         <a href="/initiatives/new" class="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium">+</a>
+        {% endif %}
       </div>
     </div>
   </nav>
@@ -69,15 +100,18 @@
       <span class="text-xs">Home</span>
     </a>
 
-    <!-- Copilot -->
+    <!-- Copilot (founder + coo only) -->
+    {% if user.role in ("founder", "coo") %}
     <a href="/copilot" class="flex-1 flex flex-col items-center py-2.5 text-gray-400 hover:text-gray-900" id="nav-copilot">
       <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
       </svg>
       <span class="text-xs">Copilot</span>
     </a>
+    {% endif %}
 
-    <!-- Initiatives -->
+    <!-- New Initiative (founder + coo) -->
+    {% if user.role in ("founder", "coo") %}
     <a href="/initiatives/new" class="flex-1 flex flex-col items-center py-2.5 text-gray-400 hover:text-gray-900" id="nav-initiatives">
       <div class="w-8 h-8 -mt-5 bg-gray-900 rounded-full flex items-center justify-center shadow-lg">
         <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -86,16 +120,19 @@
       </div>
       <span class="text-xs mt-1">New</span>
     </a>
+    {% endif %}
 
-    <!-- Revenue -->
+    <!-- Revenue (founder only) -->
+    {% if user.role == "founder" %}
     <a href="/revenue" class="flex-1 flex flex-col items-center py-2.5 text-gray-400 hover:text-gray-900" id="nav-revenue">
       <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
       <span class="text-xs">Revenue</span>
     </a>
+    {% endif %}
 
-    <!-- Profile / Sign out -->
+    <!-- Brief -->
     <a href="/daily-brief" class="flex-1 flex flex-col items-center py-2.5 text-gray-400 hover:text-gray-900" id="nav-brief">
       <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
@@ -110,13 +147,213 @@
     {% block content %}{% endblock %}
   </main>
 
+  <!-- ── PHANT elephant widget ──────────────────────────────────────────── -->
+  {% if user is defined and user and user.role in ("founder", "coo") %}
+
+  <!-- Elephant toggle button -->
+  <button
+    id="phant-btn"
+    onclick="togglePhantPanel()"
+    aria-label="Open PHANT panel"
+    class="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[200] w-12 h-12 bg-gray-900 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-700 transition-colors"
+  >
+    <!-- Elephant SVG (geometric, no emoji) -->
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M19 8C19 5.79 17.21 4 15 4C13.34 4 11.91 4.98 11.27 6.39C10.88 6.14 10.45 6 10 6C8.67 6 7.54 6.84 7.15 8.01C7.1 8 7.05 8 7 8C5.34 8 4 9.34 4 11C4 11.36 4.07 11.7 4.19 12.01C3.49 12.22 3 12.86 3 13.6L3 16C3 16.55 3.45 17 4 17L5 17L5 18C5 18.55 5.45 19 6 19C6.55 19 7 18.55 7 18L7 17L8 17L8 19C8 19.55 8.45 20 9 20C9.55 20 10 19.55 10 19L10 17L12.26 17C12.7 18.14 13.76 19 15 19C16.66 19 18 17.66 18 16C18 15.62 17.93 15.26 17.8 14.93C18.52 14.35 19 13.48 19 12.5L19 8Z" fill="white" opacity="0.9"/>
+      <circle cx="16" cy="10" r="1" fill="#111827"/>
+      <circle cx="12" cy="11" r="0.7" fill="#111827"/>
+    </svg>
+  </button>
+
+  <!-- PHANT sliding panel -->
+  <div
+    id="phant-panel"
+    class="panel-closed fixed bottom-0 right-0 z-[199] bg-white border border-gray-200 shadow-2xl
+           w-full sm:w-96
+           h-[75vh] sm:h-full sm:top-0
+           rounded-t-2xl sm:rounded-l-2xl sm:rounded-r-none
+           flex flex-col overflow-hidden"
+    aria-hidden="true"
+  >
+    <!-- Panel header -->
+    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <div class="w-5 h-5 bg-gray-900 rounded flex items-center justify-center">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M19 8C19 5.79 17.21 4 15 4C13.34 4 11.91 4.98 11.27 6.39C10.88 6.14 10.45 6 10 6C8.67 6 7.54 6.84 7.15 8.01C7.1 8 7.05 8 7 8C5.34 8 4 9.34 4 11C4 11.36 4.07 11.7 4.19 12.01C3.49 12.22 3 12.86 3 13.6L3 16C3 16.55 3.45 17 4 17L5 17L5 18C5 18.55 5.45 19 6 19C6.55 19 7 18.55 7 18L7 17L8 17L8 19C8 19.55 8.45 20 9 20C9.55 20 10 19.55 10 19L10 17L12.26 17C12.7 18.14 13.76 19 15 19C16.66 19 18 17.66 18 16C18 15.62 17.93 15.26 17.8 14.93C18.52 14.35 19 13.48 19 12.5L19 8Z"/></svg>
+        </div>
+        <span class="text-sm font-bold text-gray-900">PHANT</span>
+        <span class="text-xs text-gray-400 hidden sm:block">Ecosystem intelligence</span>
+      </div>
+      <button onclick="togglePhantPanel()" class="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="flex border-b border-gray-100 flex-shrink-0">
+      <button
+        id="tab-brief"
+        onclick="switchTab('brief')"
+        class="flex-1 py-2.5 text-xs font-semibold text-gray-900 border-b-2 border-gray-900"
+      >Brief</button>
+      <button
+        id="tab-ask"
+        onclick="switchTab('ask')"
+        class="flex-1 py-2.5 text-xs font-semibold text-gray-400 border-b-2 border-transparent hover:text-gray-600"
+      >Ask</button>
+    </div>
+
+    <!-- Brief tab -->
+    <div id="phant-brief-tab" class="flex-1 overflow-y-auto p-4 space-y-3">
+      <div id="phant-brief-loading" class="flex items-center gap-2 text-sm text-gray-400">
+        <div class="w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+        Loading brief...
+      </div>
+      <div id="phant-brief-content" class="hidden text-sm text-gray-700 space-y-3 leading-relaxed"></div>
+    </div>
+
+    <!-- Ask tab -->
+    <div id="phant-ask-tab" class="hidden flex-1 flex flex-col overflow-hidden">
+      <div id="phant-chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+      <div class="border-t border-gray-100 p-3 flex gap-2 flex-shrink-0">
+        <input
+          id="phant-input"
+          type="text"
+          placeholder="Ask about the ecosystem..."
+          class="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-gray-400"
+          onkeydown="if(event.key==='Enter')sendPhantMessage()"
+        />
+        <button
+          onclick="sendPhantMessage()"
+          class="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-700"
+        >Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let phant_open = false;
+    let brief_loaded = false;
+
+    function togglePhantPanel() {
+      phant_open = !phant_open;
+      const panel = document.getElementById('phant-panel');
+      panel.classList.toggle('panel-open', phant_open);
+      panel.classList.toggle('panel-closed', !phant_open);
+      panel.setAttribute('aria-hidden', !phant_open);
+      if (phant_open && !brief_loaded) loadBrief();
+    }
+
+    function switchTab(tab) {
+      const briefTab = document.getElementById('phant-brief-tab');
+      const askTab   = document.getElementById('phant-ask-tab');
+      const btnBrief = document.getElementById('tab-brief');
+      const btnAsk   = document.getElementById('tab-ask');
+
+      if (tab === 'brief') {
+        briefTab.classList.remove('hidden');
+        askTab.classList.add('hidden');
+        btnBrief.classList.add('text-gray-900', 'border-gray-900');
+        btnBrief.classList.remove('text-gray-400', 'border-transparent');
+        btnAsk.classList.remove('text-gray-900', 'border-gray-900');
+        btnAsk.classList.add('text-gray-400', 'border-transparent');
+      } else {
+        askTab.classList.remove('hidden');
+        briefTab.classList.add('hidden');
+        btnAsk.classList.add('text-gray-900', 'border-gray-900');
+        btnAsk.classList.remove('text-gray-400', 'border-transparent');
+        btnBrief.classList.remove('text-gray-900', 'border-gray-900');
+        btnBrief.classList.add('text-gray-400', 'border-transparent');
+        document.getElementById('phant-input').focus();
+      }
+    }
+
+    async function loadBrief() {
+      brief_loaded = true;
+      try {
+        const res  = await fetch('/copilot/chat', {
+          method:  'POST',
+          headers: {'Content-Type': 'application/json'},
+          body:    JSON.stringify({message: 'give me today\'s brief'})
+        });
+        const data = await res.json();
+        const loading = document.getElementById('phant-brief-loading');
+        const content = document.getElementById('phant-brief-content');
+        loading.classList.add('hidden');
+        content.classList.remove('hidden');
+        content.innerHTML = formatMarkdown(data.response || 'No brief available.');
+      } catch(e) {
+        document.getElementById('phant-brief-loading').textContent = 'Unable to load brief.';
+      }
+    }
+
+    async function sendPhantMessage() {
+      const input = document.getElementById('phant-input');
+      const msg   = input.value.trim();
+      if (!msg) return;
+      input.value = '';
+
+      const container = document.getElementById('phant-chat-messages');
+      container.insertAdjacentHTML('beforeend',
+        `<div class="flex justify-end">
+           <div class="bg-gray-900 text-white text-sm px-3 py-2 rounded-2xl rounded-br-sm max-w-[85%]">${escapeHtml(msg)}</div>
+         </div>`
+      );
+      container.scrollTop = container.scrollHeight;
+
+      // Typing indicator
+      const typingId = 'typing-' + Date.now();
+      container.insertAdjacentHTML('beforeend',
+        `<div id="${typingId}" class="flex justify-start">
+           <div class="bg-gray-100 text-gray-500 text-xs px-3 py-2 rounded-2xl">...</div>
+         </div>`
+      );
+      container.scrollTop = container.scrollHeight;
+
+      try {
+        const res  = await fetch('/copilot/chat', {
+          method:  'POST',
+          headers: {'Content-Type': 'application/json'},
+          body:    JSON.stringify({message: msg})
+        });
+        const data = await res.json();
+        document.getElementById(typingId)?.remove();
+        container.insertAdjacentHTML('beforeend',
+          `<div class="flex justify-start">
+             <div class="bg-white border border-gray-200 text-gray-800 text-sm px-3 py-2 rounded-2xl rounded-bl-sm max-w-[85%]">${formatMarkdown(data.response || 'No response.')}</div>
+           </div>`
+        );
+      } catch(e) {
+        document.getElementById(typingId)?.remove();
+        container.insertAdjacentHTML('beforeend',
+          `<div class="flex justify-start"><div class="bg-red-50 text-red-600 text-xs px-3 py-2 rounded-xl">Request failed. Check connection.</div></div>`
+        );
+      }
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function formatMarkdown(text) {
+      return text
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br/>');
+    }
+  </script>
+  {% endif %}
+
   <!-- Highlight active nav item -->
   <script>
     const path = window.location.pathname;
     const map = {
-      '/copilot': 'nav-copilot',
+      '/copilot':     'nav-copilot',
       '/daily-brief': 'nav-brief',
-      '/revenue': 'nav-revenue',
+      '/revenue':     'nav-revenue',
     };
     let activeId = 'nav-home';
     for (const [prefix, id] of Object.entries(map)) {

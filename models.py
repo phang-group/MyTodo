@@ -1,19 +1,22 @@
 """
 MyTodo Founder OS — Data Model
 
+Phase 2: Multi-user workspace with roles and invitation-based access.
+
+WorkspaceUser   — approved team members (founder, coo, staff, viewer)
+WorkspaceInvite — single-use invite tokens created by founder
+
 Core entity: Initiative
   An initiative is anything the founder is building, distributing, or monetising.
-  Examples: InfoPro, NextDoor, PHANG, Foodie AI, Canada Plan
+  visibility: private (founder only) | team (coo+) | public (all members)
 
 Every initiative tracks three dimensions:
   Build Score        (0-100) — how much of the product is built
   Distribution Score (0-100) — how actively it's being published/shared
   Revenue Score      (0-100) — how much revenue it generates
 
-The gap between Build and Distribution is the most common bottleneck.
-PHANT reads these scores to generate attention-routing signals.
-
-No local User model. Identity comes from the PHANG gateway (gateway_user_id = int).
+Forward compat: gateway_user_id will link to phang_member_id when Gateway JWT
+integration is complete. The workspace_users table will grow a phang_member_id FK.
 """
 
 import json
@@ -23,15 +26,63 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
+# ── Identity ──────────────────────────────────────────────────────────────────
+
+class WorkspaceUser(Base):
+    """
+    Approved member of the MyTodo workspace.
+    Founder is auto-created on first startup from env vars.
+    All other users are invite-only.
+    """
+    __tablename__ = "workspace_users"
+
+    id           = Column(Integer, primary_key=True)
+    email        = Column(String(255), unique=True, nullable=False, index=True)
+    full_name    = Column(String(255), nullable=False, default="")
+    role         = Column(String(20),  nullable=False, default="viewer")
+    # role values: "founder" | "coo" | "staff" | "viewer"
+    status       = Column(String(20),  nullable=False, default="pending")
+    # status values: "approved" | "pending" | "suspended"
+    password_hash = Column(String(255), nullable=False, default="")
+    created_at   = Column(DateTime, default=datetime.utcnow)
+    updated_at   = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class WorkspaceInvite(Base):
+    """
+    Single-use invite token. Founder creates; team member uses it to set password.
+    Expires 72 hours after creation.
+    """
+    __tablename__ = "workspace_invites"
+
+    id          = Column(Integer, primary_key=True)
+    token       = Column(String(64), unique=True, nullable=False, index=True)
+    email       = Column(String(255), nullable=False)
+    role        = Column(String(20),  nullable=False, default="viewer")
+    created_by  = Column(Integer, nullable=False)   # WorkspaceUser.id of founder
+    used        = Column(Boolean, nullable=False, default=False)
+    expires_at  = Column(DateTime, nullable=False)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+
 class Initiative(Base):
     """
     The atomic unit of founder execution.
     One Initiative = one product, project, or bet the founder is running.
+
+    visibility controls who can see this initiative:
+      private — founder only (default, protects planning from team)
+      team    — founder + coo
+      public  — all approved workspace members
     """
     __tablename__ = "initiatives"
 
     id = Column(Integer, primary_key=True)
     gateway_user_id = Column(Integer, nullable=False, index=True)
+
+    # Phase 2: visibility control
+    visibility = Column(String(20), nullable=False, default="private")
+    # "private" | "team" | "public"
 
     name = Column(String, nullable=False)           # "InfoPro", "NextDoor", "Foodie AI"
     description = Column(Text, default="")
@@ -96,6 +147,9 @@ class Task(Base):
     id = Column(Integer, primary_key=True)
     initiative_id = Column(Integer, ForeignKey("initiatives.id"), nullable=True)
     gateway_user_id = Column(Integer, nullable=False, index=True)
+
+    # Phase 2: tasks can be assigned to a specific workspace member
+    assigned_to_user_id = Column(Integer, ForeignKey("workspace_users.id"), nullable=True, index=True)
 
     title = Column(String, nullable=False)
     notes = Column(Text, default="")

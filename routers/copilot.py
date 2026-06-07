@@ -10,8 +10,11 @@ from sqlalchemy.orm import Session
 
 import ai_copilot
 import gateway_auth
+import workspace_auth
 import models
 from database import get_db
+
+_coo_or_above = workspace_auth.require_role("founder", "coo")
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -21,7 +24,7 @@ log = logging.getLogger("mytodo.copilot")
 @router.get("/copilot", response_class=HTMLResponse)
 async def copilot_page(
     request: Request,
-    identity: dict = Depends(gateway_auth.require_identity),
+    identity: dict = Depends(_coo_or_above),
     db: Session = Depends(get_db),
 ):
     user_id = identity["user_id"]
@@ -50,7 +53,7 @@ async def copilot_page(
 @router.post("/copilot/chat")
 async def copilot_chat(
     request: Request,
-    identity: dict = Depends(gateway_auth.require_identity),
+    identity: dict = Depends(_coo_or_above),
     db: Session = Depends(get_db),
 ):
     user_id = identity["user_id"]
@@ -104,7 +107,7 @@ async def copilot_chat(
 @router.get("/daily-brief", response_class=HTMLResponse)
 async def daily_brief_page(
     request: Request,
-    identity: dict = Depends(gateway_auth.require_identity),
+    identity: dict = Depends(_coo_or_above),
     db: Session = Depends(get_db),
 ):
     user_id = identity["user_id"]
