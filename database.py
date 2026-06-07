@@ -39,6 +39,75 @@ def init_db():
         DailyBrief, ChatMessage,
     )
     Base.metadata.create_all(bind=engine)
+    _run_schema_migrations()
+
+
+# ── Schema migrations ─────────────────────────────────────────────────────────
+# create_all() only creates new tables — it never alters existing ones.
+# These migrations add Phase 2 columns to tables that were created in Phase 1.
+# Each ALTER is idempotent: safe on every cold start regardless of DB state.
+#
+# Columns added:
+#   initiatives.visibility        VARCHAR(20) DEFAULT 'private'
+#   tasks.visibility              VARCHAR(20) DEFAULT 'team'
+#   tasks.assigned_to_user_id     INTEGER (nullable FK to workspace_users.id)
+#   revenue_records.visibility    VARCHAR(20) DEFAULT 'private'
+#   distribution_actions.visibility VARCHAR(20) DEFAULT 'team'
+
+_MIGRATIONS = [
+    # (table, column, column_definition)
+    ("initiatives",        "visibility",           "VARCHAR(20) NOT NULL DEFAULT 'private'"),
+    ("tasks",              "visibility",           "VARCHAR(20) NOT NULL DEFAULT 'team'"),
+    ("tasks",              "assigned_to_user_id",  "INTEGER"),
+    ("revenue_records",    "visibility",           "VARCHAR(20) NOT NULL DEFAULT 'private'"),
+    ("distribution_actions", "visibility",         "VARCHAR(20) NOT NULL DEFAULT 'team'"),
+]
+
+
+def _run_schema_migrations() -> None:
+    """
+    Idempotently apply Phase 2 column additions to existing tables.
+
+    Strategy per dialect:
+      PostgreSQL — ALTER TABLE … ADD COLUMN IF NOT EXISTS (native, no-op if present)
+      SQLite     — ALTER TABLE … ADD COLUMN wrapped in try/except
+                   (SQLite raises OperationalError if column exists)
+
+    No destructive operations. Existing rows receive the column default value.
+    """
+    import logging
+    log = logging.getLogger("mytodo.db")
+    dialect = engine.dialect.name  # "postgresql" or "sqlite"
+
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        for table, column, col_def in _MIGRATIONS:
+            try:
+                if dialect == "postgresql":
+                    conn.execute(
+                        text(
+                            f"ALTER TABLE {table} "
+                            f"ADD COLUMN IF NOT EXISTS {column} {col_def}"
+                        )
+                    )
+                else:
+                    # SQLite: no IF NOT EXISTS for ALTER TABLE
+                    conn.execute(
+                        text(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+                    )
+                log.debug("schema migration OK: %s.%s", table, column)
+            except Exception as exc:
+                # "column already exists" is expected on warm restarts; log at DEBUG only
+                msg = str(exc).lower()
+                if "already exists" in msg or "duplicate column" in msg:
+                    log.debug("schema migration skip (exists): %s.%s", table, column)
+                else:
+                    # Unexpected error — log at WARNING so it appears in Vercel logs
+                    log.warning(
+                        "schema migration WARNING: %s.%s — %s", table, column, exc
+                    )
+
 
 
 def bootstrap_founder() -> None:
