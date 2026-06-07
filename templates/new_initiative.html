@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}New Initiative — Founder OS{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+  <a href="/" class="text-xs text-gray-400 hover:text-gray-600 mb-4 block">← Overview</a>
+  <h1 class="text-xl font-bold text-gray-900 mb-6">New Initiative</h1>
+
+  <form action="/initiatives" method="post" class="space-y-5">
+
+    <div>
+      <label class="text-sm font-medium text-gray-700">Name</label>
+      <input name="name" placeholder="e.g. InfoPro, Foodie AI, PHANG" required autofocus
+        class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+    </div>
+
+    <div>
+      <label class="text-sm font-medium text-gray-700">Description</label>
+      <textarea name="description" rows="2" placeholder="One line: what is it and who is it for?"
+        class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"></textarea>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm font-medium text-gray-700">Stage</label>
+        <select name="stage" class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+          {% for s in ['ideation','building','launched','distributing','revenue','paused'] %}
+          <option value="{{ s }}" {% if s == 'building' %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-sm font-medium text-gray-700">Category</label>
+        <select name="category" class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+          {% for c in ['product','infra','platform','content','personal'] %}
+          <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Scores -->
+    <div class="bg-gray-50 rounded-2xl p-4 space-y-4">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Scores (0–100)</p>
+      <p class="text-xs text-gray-500">Be honest. Distribution is almost always the bottleneck.</p>
+
+      {% for label, field, color, hint in [
+        ('Build', 'build_score', 'text-blue-700', 'What % of the product is actually built?'),
+        ('Distribution', 'distribution_score', 'text-amber-700', 'How actively are you publishing and sharing?'),
+      ] %}
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="text-sm font-medium {{ color }}">{{ label }}</label>
+          <span id="{{ field }}-display" class="text-sm font-bold {{ color }}">0</span>
+        </div>
+        <input type="range" name="{{ field }}" min="0" max="100" value="0" id="{{ field }}"
+          oninput="document.getElementById('{{ field }}-display').textContent = this.value"
+          class="w-full accent-gray-900">
+        <p class="text-xs text-gray-400 mt-1">{{ hint }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div>
+      <label class="text-sm font-medium text-gray-700">Build notes <span class="text-gray-400 font-normal">(optional)</span></label>
+      <textarea name="build_notes" rows="2" placeholder="What has been built so far?"
+        class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"></textarea>
+    </div>
+
+    <div>
+      <label class="text-sm font-medium text-gray-700">Distribution notes <span class="text-gray-400 font-normal">(optional)</span></label>
+      <textarea name="distribution_notes" rows="2" placeholder="Which channels are active?"
+        class="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"></textarea>
+    </div>
+
+    <button type="submit"
+      class="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold text-sm hover:bg-gray-700">
+      Add Initiative
+    </button>
+  </form>
+</div>
+{% endblock %}

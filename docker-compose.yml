@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  mytodo:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    volumes:
+      - mytodo-data:/data
+    environment:
+      DATABASE_URL: sqlite:////data/mytodo.db
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      GATEWAY_URL: ${GATEWAY_URL:-http://app-gateway-1:8080}
+      PHANG_ADMIN_SECRET: ${PHANG_ADMIN_SECRET}
+
+volumes:
+  mytodo-data:

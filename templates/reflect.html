@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Reflect — {{ goal.title }} — MyTodo{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+  <a href="/goals/{{ goal.id }}" class="text-sm text-gray-400 hover:text-gray-700">← {{ goal.title }}</a>
+</div>
+
+<!-- Header -->
+<div class="mb-6">
+  <h1 class="text-xl font-bold text-gray-900">Reflection Session {{ session_number }}</h1>
+  <p class="text-sm text-gray-500 mt-1">One question at a time. Each answer sharpens the trajectory model.</p>
+</div>
+
+<!-- Current Question -->
+{% if current_session %}
+<div class="bg-gray-900 text-white rounded-2xl p-6 mb-6">
+  <div class="flex items-center gap-2 mb-4">
+    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ current_session.domain }}</span>
+    <span class="text-xs text-gray-600">Session {{ current_session.session_number }}</span>
+  </div>
+  <p class="text-base leading-relaxed mb-6">{{ current_session.question }}</p>
+
+  {% if not current_session.answer %}
+  <form action="/goals/{{ goal.id }}/reflect/{{ current_session.id }}" method="post">
+    <textarea
+      name="answer"
+      rows="4"
+      placeholder="Think through it honestly. There are no wrong answers here."
+      class="w-full bg-gray-800 text-white text-sm rounded-xl border border-gray-700 px-4 py-3 resize-none focus:outline-none focus:border-gray-500 placeholder-gray-600"
+      required
+    ></textarea>
+    <div class="flex justify-end mt-4">
+      <button type="submit"
+        class="bg-white text-gray-900 text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-gray-100 transition-colors">
+        Submit answer
+      </button>
+    </div>
+  </form>
+  {% else %}
+  <div class="bg-gray-800 rounded-xl px-4 py-3 text-sm text-gray-200 leading-relaxed">
+    {{ current_session.answer }}
+  </div>
+  <div class="mt-4">
+    <a href="/goals/{{ goal.id }}/reflect"
+       class="inline-block text-xs font-medium text-white border border-gray-600 rounded-lg px-4 py-2 hover:bg-gray-800 transition-colors">
+      Next question
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Previous sessions -->
+{% set answered = sessions | selectattr('answer') | list %}
+{% if answered %}
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+  <h2 class="font-semibold text-gray-900 text-sm mb-4">Previous sessions</h2>
+  <div class="space-y-5">
+    {% for s in answered | reverse %}
+    {% if s.id != current_session.id %}
+    <div class="pb-5 {% if not loop.last %}border-b border-gray-100{% endif %}">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-xs font-semibold text-gray-400 uppercase">{{ s.domain }}</span>
+        <span class="text-xs text-gray-300">Session {{ s.session_number }}</span>
+      </div>
+      <p class="text-sm text-gray-700 font-medium mb-2">{{ s.question }}</p>
+      <p class="text-sm text-gray-500 leading-relaxed">{{ s.answer }}</p>
+      {% if s.insights_list() %}
+      <div class="mt-2 space-y-1">
+        {% for insight in s.insights_list() %}
+        <div class="text-xs text-gray-500 bg-gray-50 rounded px-3 py-1.5 flex items-start gap-1.5">
+          <svg class="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+          {{ insight }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

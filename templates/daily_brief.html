@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Brief — Founder OS{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <p class="text-xs text-gray-400 uppercase tracking-wide font-medium">{{ today }}</p>
+      <h1 class="text-xl font-bold text-gray-900">Daily Brief</h1>
+    </div>
+    <a href="/copilot" class="text-sm text-gray-500 hover:text-gray-800">← Copilot</a>
+  </div>
+
+  {% if brief %}
+
+  <!-- Headline -->
+  {% if brief.headline %}
+  <div class="bg-gray-900 text-white rounded-2xl p-5 mb-5">
+    <p class="text-sm font-medium text-gray-400 mb-1">Signal</p>
+    <p class="text-base font-semibold leading-snug">{{ brief.headline }}</p>
+    {% if brief.phant_confidence %}
+    <p class="text-xs text-gray-500 mt-2">Confidence: {{ brief.phant_confidence }}%</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Top Priority -->
+  {% if brief.top_priority %}
+  {% set top = brief.top_priority %}
+  <div class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+    <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-2">Top Priority</p>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <p class="font-semibold text-gray-900">{{ top.initiative }}</p>
+        <p class="text-sm text-gray-600 mt-0.5">{{ top.reason }}</p>
+      </div>
+      {% if top.bottleneck %}
+      <span class="flex-none text-xs font-medium px-2.5 py-1 rounded-full
+        {% if top.bottleneck == 'distribution' %}bg-amber-50 text-amber-700 border border-amber-200
+        {% elif top.bottleneck == 'revenue' %}bg-red-50 text-red-700 border border-red-200
+        {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+        {{ top.bottleneck }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Actions -->
+  {% if brief.actions %}
+  <div class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+    <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-3">Actions Today</p>
+    <ul class="space-y-2">
+      {% for action in brief.actions %}
+      <li class="flex items-start gap-2.5 text-sm text-gray-800">
+        <div class="flex-none w-5 h-5 mt-0.5 rounded border border-gray-300 cursor-pointer hover:border-gray-500 check-box" onclick="toggleCheck(this)"></div>
+        <span>{{ action }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Revenue Opportunities -->
+  {% if brief.revenue_opportunities %}
+  <div class="bg-green-50 border border-green-200 rounded-2xl p-4 mb-4">
+    <p class="text-xs text-green-700 uppercase tracking-wide font-medium mb-3">Revenue Opportunities</p>
+    <ul class="space-y-2">
+      {% for opp in brief.revenue_opportunities %}
+      <li class="flex items-start gap-2 text-sm text-green-900">
+        <svg class="w-4 h-4 flex-none mt-0.5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>{{ opp }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Blocked Initiatives -->
+  {% if brief.blocked_initiatives %}
+  <div class="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4">
+    <p class="text-xs text-red-700 uppercase tracking-wide font-medium mb-3">Blocked</p>
+    {% for blocked in brief.blocked_initiatives %}
+    <div class="flex items-start justify-between text-sm mb-1.5">
+      <span class="font-medium text-red-900">{{ blocked.name }}</span>
+      <span class="text-red-600 ml-4">{{ blocked.blocker }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Initiative Scoreboard -->
+  {% if initiatives %}
+  <div class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+    <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-3">Initiative Scores</p>
+    <div class="space-y-3">
+      {% for ini in initiatives %}
+      <a href="/initiatives/{{ ini.id }}" class="block">
+        <div class="flex items-center justify-between text-sm mb-1">
+          <span class="font-medium text-gray-800">{{ ini.name }}</span>
+          <span class="text-xs text-gray-400">₦{{ "{:,.0f}".format(ini.revenue_total or 0) }}</span>
+        </div>
+        <div class="flex gap-1.5">
+          <div class="flex-1">
+            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-blue-500 rounded-full" style="width: {{ ini.build_score }}%"></div>
+            </div>
+          </div>
+          <div class="flex-1">
+            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-amber-400 rounded-full" style="width: {{ ini.distribution_score }}%"></div>
+            </div>
+          </div>
+          <div class="flex-1">
+            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-green-500 rounded-full" style="width: {{ ini.revenue_score }}%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-1.5 mt-0.5">
+          <span class="flex-1 text-xs text-gray-400 text-center">B</span>
+          <span class="flex-1 text-xs text-gray-400 text-center">D</span>
+          <span class="flex-1 text-xs text-gray-400 text-center">R</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="text-center py-16 text-gray-400">
+    <p>No brief available. Add some initiatives and come back tomorrow.</p>
+    <a href="/copilot" class="mt-4 inline-block text-sm text-gray-700 underline">Go to Copilot</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleCheck(el) {
+    const checked = el.dataset.checked === 'true';
+    if (checked) {
+      el.dataset.checked = 'false';
+      el.innerHTML = '';
+      el.className = 'flex-none w-5 h-5 mt-0.5 rounded border border-gray-300 cursor-pointer hover:border-gray-500 check-box';
+    } else {
+      el.dataset.checked = 'true';
+      el.innerHTML = '<svg class="w-3 h-3 text-white m-auto mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+      el.className = 'flex-none w-5 h-5 mt-0.5 rounded bg-gray-900 border border-gray-900 cursor-pointer check-box';
+    }
+  }
+</script>
+{% endblock %}

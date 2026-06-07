@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Founder OS{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="flex items-start justify-between mb-6">
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">{{ user.name }}</h1>
+    <p class="text-gray-400 text-sm">{{ today.strftime('%A, %B %d') }}</p>
+  </div>
+  <div class="text-right">
+    {% if total_revenue and total_revenue > 0 %}
+    <div class="text-lg font-bold text-green-700">₦{{ "{:,.0f}".format(total_revenue) }}</div>
+    <div class="text-xs text-gray-400">total revenue</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- PHANT Brief -->
+{% if brief %}
+<div class="bg-gray-900 text-white rounded-2xl p-5 mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">PHANT — {{ brief.brief_date }}</span>
+    <a href="/brief" class="text-xs text-gray-500 hover:text-gray-300">Full brief</a>
+  </div>
+  {% if brief.headline %}
+  <p class="text-sm text-gray-100 mb-3">{{ brief.headline }}</p>
+  {% endif %}
+  {% set actions = brief.actions_list() %}
+  {% if actions %}
+  <div class="space-y-1">
+    {% for action in actions[:3] %}
+    <div class="flex items-start gap-2 text-sm">
+      <span class="text-gray-500 mt-0.5 flex-shrink-0">{{ loop.index }}.</span>
+      <span class="text-gray-200">{{ action }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Initiatives grid -->
+{% if initiatives %}
+<div class="mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="font-semibold text-gray-900">Initiatives</h2>
+    <a href="/initiatives/new" class="text-sm bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700">+ New</a>
+  </div>
+  <div class="grid gap-3 sm:grid-cols-2">
+    {% for ini in initiatives %}
+    <a href="/initiatives/{{ ini.id }}" class="block bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:border-gray-300 transition-colors">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <div class="font-semibold text-gray-900 text-sm">{{ ini.name }}</div>
+          <div class="text-xs text-gray-400 mt-0.5">{{ ini.stage }}</div>
+        </div>
+        {% if ini.bottleneck %}
+        <span class="text-xs px-2 py-0.5 rounded-full
+          {% if ini.bottleneck == 'distribution' %}bg-amber-50 text-amber-700
+          {% elif ini.bottleneck == 'revenue' %}bg-red-50 text-red-700
+          {% else %}bg-blue-50 text-blue-700{% endif %}">
+          {{ ini.bottleneck }}
+        </span>
+        {% endif %}
+      </div>
+
+      <!-- Score bars -->
+      <div class="space-y-1.5">
+        {% for label, score, color in [
+          ('Build', ini.build_score, 'bg-blue-500'),
+          ('Distribute', ini.distribution_score, 'bg-amber-500'),
+          ('Revenue', ini.revenue_score, 'bg-green-500')
+        ] %}
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 w-16">{{ label }}</span>
+          <div class="flex-1 bg-gray-100 rounded-full h-1.5">
+            <div class="{{ color }} h-1.5 rounded-full transition-all" style="width: {{ score }}%"></div>
+          </div>
+          <span class="text-xs text-gray-500 w-8 text-right">{{ score }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if ini.revenue_total and ini.revenue_total > 0 %}
+      <div class="mt-2 text-xs text-green-700 font-medium">₦{{ "{:,.0f}".format(ini.revenue_total) }}</div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+{% else %}
+<!-- No initiatives -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center mb-6">
+  <h3 class="font-semibold text-gray-700 mb-2">No initiatives yet</h3>
+  <p class="text-gray-400 text-sm mb-6">An initiative is anything you are building, distributing, or monetising.</p>
+  <a href="/initiatives/new" class="bg-gray-900 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-gray-700">
+    Add First Initiative
+  </a>
+</div>
+{% endif %}
+
+<!-- Today's tasks -->
+{% if today_tasks %}
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6">
+  <div class="flex items-center justify-between px-5 py-3 border-b border-gray-50">
+    <h2 class="font-semibold text-gray-900 text-sm">Today</h2>
+    <span class="text-xs text-gray-400">{{ today_tasks|length }} open</span>
+  </div>
+  <div class="divide-y divide-gray-50">
+    {% for task in today_tasks[:8] %}
+    <div class="flex items-center gap-3 px-5 py-3" id="task-{{ task.id }}">
+      <button onclick="doneTask({{ task.id }}, this)"
+        class="w-4 h-4 rounded border-2 flex-shrink-0 border-gray-300 hover:border-gray-700 transition-colors">
+      </button>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm text-gray-900">{{ task.title }}</div>
+        {% if task.initiative %}
+        <div class="text-xs text-gray-400 mt-0.5">{{ task.initiative.name }}</div>
+        {% endif %}
+      </div>
+      <span class="text-xs px-1.5 py-0.5 rounded
+        {% if task.category == 'distribution' %}bg-amber-50 text-amber-600
+        {% elif task.category == 'revenue' %}bg-green-50 text-green-700
+        {% else %}bg-gray-100 text-gray-500{% endif %}">
+        {{ task.category }}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Distribution queue -->
+{% if pending_distribution %}
+<div class="bg-white rounded-2xl border border-amber-100 shadow-sm mb-6">
+  <div class="flex items-center justify-between px-5 py-3 border-b border-amber-50">
+    <h2 class="font-semibold text-gray-900 text-sm">Distribution Queue</h2>
+    <a href="/distribution" class="text-xs text-amber-600 hover:text-amber-800">View all</a>
+  </div>
+  <div class="divide-y divide-gray-50">
+    {% for action in pending_distribution %}
+    <div class="flex items-center gap-3 px-5 py-3">
+      <div class="flex-1 min-w-0">
+        <div class="text-sm text-gray-900">{{ action.description[:80] }}{% if action.description|length > 80 %}...{% endif %}</div>
+        <div class="text-xs text-gray-400 mt-0.5">{{ action.channel }}{% if action.initiative %} · {{ action.initiative.name }}{% endif %}</div>
+      </div>
+      {% if action.ai_suggested %}
+      <span class="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded flex-shrink-0">PHANT</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function doneTask(taskId, btn) {
+  btn.disabled = true;
+  btn.classList.add('bg-gray-900', 'border-gray-900');
+  try {
+    await fetch('/tasks/' + taskId + '/done', {
+      method: 'POST',
+      headers: {'Accept': 'application/json'},
+    });
+    const row = document.getElementById('task-' + taskId);
+    if (row) row.style.opacity = '0.4';
+  } catch(e) {
+    btn.disabled = false;
+    btn.classList.remove('bg-gray-900', 'border-gray-900');
+  }
+}
+</script>
+{% endblock %}
