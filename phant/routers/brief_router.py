@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+import traceback
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -11,10 +14,7 @@ from gateway_auth import require_identity
 from ..services import brief_service
 
 router = APIRouter(prefix="/phant", tags=["phant-brief"])
-
-
-import logging as _log
-_brief_log = _log.getLogger("phant.brief.router")
+log = logging.getLogger("phant.brief.router")
 
 
 @router.get("/brief/daily")
@@ -27,10 +27,9 @@ async def daily_brief(
     try:
         result = await brief_service.generate_daily_brief(db, owner_user_id, is_founder=is_founder)
         return JSONResponse(content=result)
-    except Exception as _e:
-        import traceback
-        _brief_log.error("BRIEF 500 — %s\n%s", _e, traceback.format_exc())
+    except Exception as exc:
+        log.error("BRIEF 500 — %s\n%s", exc, traceback.format_exc())
         return JSONResponse(
-            content={"error": type(_e).__name__, "detail": str(_e), "brief": None},
+            content={"error": "brief_failed", "brief": None},
             status_code=500,
         )

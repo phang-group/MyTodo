@@ -82,23 +82,3 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "mytodo-founder-os"}
-
-
-@app.get("/debug/schema")
-async def debug_schema():
-    """Temporary: show which columns exist in each product table."""
-    from database import engine
-    from sqlalchemy import text, inspect as sa_inspect
-    try:
-        inspector = sa_inspect(engine)
-        tables = ["initiatives", "tasks", "revenue_records", "distribution_actions"]
-        result = {}
-        for t in tables:
-            try:
-                cols = [c["name"] for c in inspector.get_columns(t)]
-                result[t] = cols
-            except Exception as e:
-                result[t] = f"ERROR: {e}"
-        return result
-    except Exception as e:
-        return {"error": str(e)}

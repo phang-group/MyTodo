@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+import traceback
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -12,10 +15,7 @@ from ..schemas import ChatIn
 from ..services import chat_service
 
 router = APIRouter(prefix="/phant", tags=["phant-chat"])
-
-
-import logging as _log
-_chat_log = _log.getLogger("phant.chat.router")
+log = logging.getLogger("phant.chat.router")
 
 
 @router.post("/chat")
@@ -41,10 +41,9 @@ async def phant_chat(
             "mode":       result["mode"],
             "session_id": result["session_id"],
         })
-    except Exception as _e:
-        import traceback
-        _chat_log.error("CHAT 500 — %s\n%s", _e, traceback.format_exc())
+    except Exception as exc:
+        log.error("CHAT 500 — %s\n%s", exc, traceback.format_exc())
         return JSONResponse(
-            content={"error": type(_e).__name__, "detail": str(_e), "response": None},
+            content={"error": "chat_failed", "response": None},
             status_code=500,
         )
