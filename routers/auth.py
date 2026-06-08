@@ -45,19 +45,39 @@ async def login_page(request: Request, error: str = "", success: str = ""):
 @router.post("/login")
 async def login(
     request: Request,
-    email: str = Form(...),
+    email: str = Form(default=""),
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    import os
     email = email.strip().lower()
-    user = db.query(models.WorkspaceUser).filter_by(email=email).first()
 
-    if not user or not workspace_auth.verify_password(password, user.password_hash):
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "Incorrect email or password", "success": ""},
-            status_code=401,
-        )
+    # Access-code-only path: no email supplied → match against MYTODO_ACCESS_CODE
+    # and sign in as the founder. Used by COO / testers who only know the code.
+    if not email:
+        access_code = os.getenv("MYTODO_ACCESS_CODE", "").strip()
+        if access_code and password.strip() == access_code:
+            user = db.query(models.WorkspaceUser).filter_by(role="founder").first()
+            if not user:
+                return templates.TemplateResponse(
+                    "login.html",
+                    {"request": request, "error": "Founder account not found", "success": ""},
+                    status_code=401,
+                )
+        else:
+            return templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": "Incorrect access code", "success": ""},
+                status_code=401,
+            )
+    else:
+        user = db.query(models.WorkspaceUser).filter_by(email=email).first()
+        if not user or not workspace_auth.verify_password(password, user.password_hash):
+            return templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": "Incorrect email or password", "success": ""},
+                status_code=401,
+            )
 
     if user.status == "suspended":
         return templates.TemplateResponse(
