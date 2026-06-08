@@ -13,6 +13,10 @@ from ..services import brief_service
 router = APIRouter(prefix="/phant", tags=["phant-brief"])
 
 
+import logging as _log
+_brief_log = _log.getLogger("phant.brief.router")
+
+
 @router.get("/brief/daily")
 async def daily_brief(
     db: Session = Depends(get_db),
@@ -20,5 +24,13 @@ async def daily_brief(
 ):
     owner_user_id = int(identity.get("user_id") or identity.get("uid") or 1)
     is_founder = identity.get("role") in ("founder", "admin")
-    result = await brief_service.generate_daily_brief(db, owner_user_id, is_founder=is_founder)
-    return JSONResponse(content=result)
+    try:
+        result = await brief_service.generate_daily_brief(db, owner_user_id, is_founder=is_founder)
+        return JSONResponse(content=result)
+    except Exception as _e:
+        import traceback
+        _brief_log.error("BRIEF 500 — %s\n%s", _e, traceback.format_exc())
+        return JSONResponse(
+            content={"error": type(_e).__name__, "detail": str(_e), "brief": None},
+            status_code=500,
+        )
