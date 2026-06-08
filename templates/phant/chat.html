@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Ask PHANT{% endblock %}
+
+{% block head %}
+<style>
+  /* Full-height chat layout — override main padding on this page only */
+  #phant-chat-page main {
+    padding-bottom: 80px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-[calc(100vh-11rem)] sm:h-[calc(100vh-8rem)]">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-4 flex-shrink-0">
+    <div class="flex items-center gap-3">
+      <a href="/phant" class="text-gray-400 hover:text-gray-700">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </a>
+      <div>
+        <h1 class="text-base font-bold text-gray-900">Ask PHANT</h1>
+        <p class="text-xs text-gray-400">Intelligence query</p>
+      </div>
+    </div>
+    <button onclick="clearChat()" class="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100">
+      Clear
+    </button>
+  </div>
+
+  <!-- Chat area -->
+  <div id="chat-messages"
+    class="flex-1 overflow-y-auto space-y-3 flex flex-col pb-4">
+    <div class="flex justify-start">
+      <div class="phant-chat-assistant max-w-[85%]">
+        PHANT is ready. Ask about your ecosystem — risks, goals, decisions, patterns, or current product state.
+      </div>
+    </div>
+  </div>
+
+  <!-- Mode indicator -->
+  <div id="mode-indicator" class="text-xs text-gray-300 text-right mb-1 flex-shrink-0"></div>
+
+  <!-- Input bar -->
+  <div class="border-t border-gray-100 pt-3 flex gap-2 flex-shrink-0">
+    <input
+      id="chat-input"
+      type="text"
+      placeholder="Ask about risks, decisions, goals, or current state..."
+      class="flex-1 text-sm border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-gray-400"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"
+    />
+    <button id="send-btn"
+      onclick="sendMessage()"
+      class="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-700 flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Suggested prompts (shown only at start) -->
+  <div id="suggested-prompts" class="flex flex-wrap gap-2 mt-2 flex-shrink-0">
+    <button onclick="usePrompt('What are my active risks right now?')"
+      class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-50">Active risks</button>
+    <button onclick="usePrompt('What open decisions have no outcome recorded?')"
+      class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-50">Open decisions</button>
+    <button onclick="usePrompt('What patterns am I missing across initiatives?')"
+      class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-50">Patterns</button>
+    <button onclick="usePrompt('What is the current state of my ecosystem?')"
+      class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-50">Ecosystem status</button>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _sessionId = null;
+let _sending = false;
+
+function usePrompt(text) {
+  document.getElementById('chat-input').value = text;
+  document.getElementById('suggested-prompts')?.classList.add('hidden');
+  sendMessage();
+}
+
+function clearChat() {
+  const container = document.getElementById('chat-messages');
+  _sessionId = null;
+  container.innerHTML = `<div class="flex justify-start">
+    <div class="phant-chat-assistant max-w-[85%]">
+      PHANT is ready. Ask about your ecosystem — risks, goals, decisions, patterns, or current product state.
+    </div>
+  </div>`;
+  document.getElementById('suggested-prompts')?.classList.remove('hidden');
+}
+
+async function sendMessage() {
+  if (_sending) return;
+  const input = document.getElementById('chat-input');
+  const msg = input?.value.trim();
+  if (!msg) return;
+  input.value = '';
+  _sending = true;
+
+  document.getElementById('suggested-prompts')?.classList.add('hidden');
+  const container = document.getElementById('chat-messages');
+
+  container.insertAdjacentHTML('beforeend',
+    `<div class="flex justify-end"><div class="phant-chat-user">${esc(msg)}</div></div>`);
+  container.scrollTop = container.scrollHeight;
+
+  const typingId = 'typing-' + Date.now();
+  container.insertAdjacentHTML('beforeend',
+    `<div id="${typingId}" class="flex justify-start">
+      <div class="phant-chat-assistant" style="min-width:48px">
+        <div class="flex gap-1 items-center">
+          <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0ms"></div>
+          <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:150ms"></div>
+          <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:300ms"></div>
+        </div>
+      </div>
+    </div>`);
+  container.scrollTop = container.scrollHeight;
+
+  try {
+    const body = {message: msg};
+    if (_sessionId) body.session_id = _sessionId;
+
+    const r = await fetch('/phant/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (d.session_id) _sessionId = d.session_id;
+
+    document.getElementById(typingId)?.remove();
+
+    const modeHtml = d.mode
+      ? `<div class="text-xs text-gray-300 mt-1 text-right">${esc(d.mode)}</div>`
+      : '';
+
+    container.insertAdjacentHTML('beforeend',
+      `<div class="flex justify-start">
+        <div class="flex flex-col">
+          <div class="phant-chat-assistant" style="max-width:85vw">
+            ${fmt(d.response || 'No response.')}
+          </div>
+          ${modeHtml}
+        </div>
+      </div>`);
+
+    document.getElementById('mode-indicator').textContent = d.mode ? 'mode: ' + d.mode : '';
+  } catch(e) {
+    document.getElementById(typingId)?.remove();
+    container.insertAdjacentHTML('beforeend',
+      `<div class="flex justify-start">
+        <div class="phant-chat-assistant text-red-500">Request failed — check network or auth.</div>
+      </div>`);
+  }
+  container.scrollTop = container.scrollHeight;
+  _sending = false;
+  input.focus();
+}
+
+function fmt(text) {
+  return String(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br/>');
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

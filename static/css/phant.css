@@ -1,0 +1,181 @@
+/*
+ * phant.css — PHANT global widget styles
+ * Extracted from base.html. Loaded once in <head>.
+ * Do NOT add page-specific styles here.
+ */
+
+/* ── Panel slide transitions ─────────────────────────────────────────────── */
+#phant-panel {
+  transition: transform 0.25s ease-in-out, opacity 0.2s ease;
+}
+#phant-panel.panel-closed {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+#phant-panel.panel-open {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (min-width: 640px) {
+  #phant-panel.panel-closed { transform: translateX(100%); opacity: 0; }
+  #phant-panel.panel-open   { transform: translateX(0);    opacity: 1; }
+}
+
+/* ── Signal sections ─────────────────────────────────────────────────────── */
+.phant-signal-section {
+  border-top: 1px solid #f3f4f6;
+  padding-top: 0.625rem;
+  margin-top: 0.625rem;
+}
+
+.phant-signal-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.375rem;
+  display: block;
+}
+
+.phant-signal-item {
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #f9fafb;
+}
+.phant-signal-item:last-child {
+  border-bottom: none;
+}
+.phant-signal-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: #374151;
+}
+.phant-signal-desc {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin-left: 0.9rem;
+  margin-top: 0.1rem;
+}
+
+.phant-dot-info     { color: #10b981; }
+.phant-dot-warning  { color: #f59e0b; }
+.phant-dot-critical { color: #ef4444; }
+
+.phant-signals-loading {
+  font-size: 0.7rem;
+  color: #d1d5db;
+}
+
+.phant-signal-type {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.phant-conf {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  margin-left: auto;
+}
+
+.phant-stat {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 0.375rem;
+  padding: 0.125rem 0.5rem;
+}
+
+.phant-mode-badge {
+  display: inline-block;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-left: 0.5rem;
+  align-self: flex-end;
+  margin-bottom: 0.25rem;
+}
+
+/* ── PHANT full-page UI ──────────────────────────────────────────────────── */
+.phant-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+}
+
+.phant-section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+.phant-table-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.8125rem;
+  color: #374151;
+}
+.phant-table-row:last-child { border-bottom: none; }
+
+.phant-badge {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.125rem 0.4rem;
+  border-radius: 0.25rem;
+}
+.phant-badge-risk       { background: #fef2f2; color: #ef4444; }
+.phant-badge-goal       { background: #f0fdf4; color: #16a34a; }
+.phant-badge-commitment { background: #eff6ff; color: #3b82f6; }
+.phant-badge-fact       { background: #f9fafb; color: #6b7280; }
+.phant-badge-decision   { background: #fefce8; color: #ca8a04; }
+.phant-badge-divergence { background: #fff7ed; color: #ea580c; }
+
+.phant-severity-high   { color: #ef4444; }
+.phant-severity-medium { color: #f59e0b; }
+.phant-severity-low    { color: #10b981; }
+
+/* Chat page */
+.phant-chat-user {
+  background: #111827;
+  color: #fff;
+  border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+  padding: 0.625rem 1rem;
+  max-width: 80%;
+  font-size: 0.875rem;
+  align-self: flex-end;
+}
+
+.phant-chat-assistant {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  color: #1f2937;
+  border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+  padding: 0.625rem 1rem;
+  max-width: 85%;
+  font-size: 0.875rem;
+  align-self: flex-start;
+  line-height: 1.5;
+}

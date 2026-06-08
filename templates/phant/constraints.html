@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}PHANT — Constraints{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Constraints</h1>
+      <p class="text-sm text-gray-400 mt-0.5">Rules that govern every recommendation</p>
+    </div>
+    <button onclick="document.getElementById('add-constraint-modal').classList.remove('hidden')"
+      class="bg-gray-900 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-gray-700">+ Constraint</button>
+  </div>
+
+  <!-- Hard constraints -->
+  <div class="phant-card">
+    <span class="phant-section-label">Hard Constraints</span>
+    <p class="text-xs text-gray-400 mb-3">Non-negotiable rules. PHANT will never recommend violating these.</p>
+    <div id="hard-list">
+      <div class="text-xs text-gray-300">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Soft constraints -->
+  <div class="phant-card">
+    <span class="phant-section-label">Soft Constraints</span>
+    <p class="text-xs text-gray-400 mb-3">Preferences and guidelines that inform recommendations but can be overridden.</p>
+    <div id="soft-list">
+      <div class="text-xs text-gray-300">Loading...</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Add Constraint Modal -->
+<div id="add-constraint-modal" class="hidden fixed inset-0 z-[300] flex items-end sm:items-center justify-center bg-black/40">
+  <div class="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-bold text-gray-900">Add Constraint</h2>
+      <button onclick="document.getElementById('add-constraint-modal').classList.add('hidden')"
+        class="text-gray-400 hover:text-gray-700">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <form onsubmit="submitConstraint(event)" class="space-y-3">
+      <div>
+        <label class="text-xs font-semibold text-gray-500 block mb-1">Rule</label>
+        <textarea name="content" rows="3" required placeholder="State the constraint clearly..."
+          class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 resize-none"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-semibold text-gray-500 block mb-1">Type</label>
+          <select name="constraint_type"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+            <option value="prohibit">Prohibit</option>
+            <option value="require">Require</option>
+            <option value="prefer">Prefer</option>
+            <option value="avoid">Avoid</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-500 block mb-1">Strength</label>
+          <select name="is_hard_constraint"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+            <option value="true">Hard (non-negotiable)</option>
+            <option value="false">Soft (preference)</option>
+          </select>
+        </div>
+      </div>
+      <div id="con-error" class="hidden text-xs text-red-500"></div>
+      <button type="submit"
+        class="w-full bg-gray-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-700">
+        Save Constraint
+      </button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+loadConstraints();
+
+async function loadConstraints() {
+  try {
+    const r = await fetch('/phant/constraints');
+    const d = await r.json();
+    const hard = (d.constraints || []).filter(c => c.is_hard_constraint);
+    const soft = (d.constraints || []).filter(c => !c.is_hard_constraint);
+    renderConstraints('hard-list', hard);
+    renderConstraints('soft-list', soft);
+  } catch(_) {}
+}
+
+function renderConstraints(id, items) {
+  const el = document.getElementById(id);
+  if (!items.length) { el.innerHTML = '<span class="text-xs text-gray-300">None defined.</span>'; return; }
+  el.innerHTML = items.map(function(c) {
+    const typeColor = {'prohibit':'text-red-600','require':'text-blue-600','prefer':'text-green-600','avoid':'text-amber-600'}[c.constraint_type] || 'text-gray-600';
+    return `<div class="phant-table-row">
+      <div class="flex flex-col flex-1 gap-0.5">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold uppercase tracking-wider ${typeColor}">${esc(c.constraint_type)}</span>
+        </div>
+        <span class="text-sm text-gray-700">${esc(c.content)}</span>
+      </div>
+      <button onclick="deactivateConstraint('${c.id}')"
+        class="text-xs text-gray-300 hover:text-red-400 flex-shrink-0">Retire</button>
+    </div>`;
+  }).join('');
+}
+
+async function deactivateConstraint(id) {
+  const reason = prompt('Why is this constraint being retired?');
+  if (reason === null) return;
+  try {
+    await fetch('/phant/constraints/' + id + '/deactivate', {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({deactivation_reason: reason})
+    });
+    loadConstraints();
+  } catch(_) {}
+}
+
+async function submitConstraint(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = {
+    content:            fd.get('content'),
+    constraint_type:    fd.get('constraint_type') || 'prohibit',
+    is_hard_constraint: fd.get('is_hard_constraint') === 'true',
+  };
+  try {
+    const r = await fetch('/phant/constraints', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('failed');
+    document.getElementById('add-constraint-modal').classList.add('hidden');
+    e.target.reset();
+    loadConstraints();
+  } catch(_) {
+    document.getElementById('con-error').textContent = 'Save failed.';
+    document.getElementById('con-error').classList.remove('hidden');
+  }
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

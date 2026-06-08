@@ -38,8 +38,20 @@ def init_db():
         Initiative, Task, RevenueRecord, DistributionAction, Reflection,
         DailyBrief, ChatMessage,
     )
+    # PHANT cognition tables — must be imported before create_all() so SQLAlchemy
+    # knows about them. ALL_MODELS is a convenience list; the import side-effect
+    # (registering each class against Base.metadata) is what matters.
+    from phant.models import ALL_MODELS as _phant_models  # noqa: F401
     Base.metadata.create_all(bind=engine)
     _run_schema_migrations()
+    # Run PHANT-specific migrations (pgvector extension + embedding column + GIN index).
+    # These are Postgres-only and non-fatal — phant.migrations guards the dialect check.
+    try:
+        from phant import migrations as phant_migrations
+        phant_migrations.run()
+    except Exception as _e:
+        import logging
+        logging.getLogger("mytodo.db").warning("PHANT migrations skipped: %s", _e)
 
 
 # ── Schema migrations ─────────────────────────────────────────────────────────
