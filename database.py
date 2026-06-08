@@ -69,11 +69,18 @@ def init_db():
 
 _MIGRATIONS = [
     # (table, column, column_definition)
-    ("initiatives",        "visibility",           "VARCHAR(20) NOT NULL DEFAULT 'private'"),
-    ("tasks",              "visibility",           "VARCHAR(20) NOT NULL DEFAULT 'team'"),
-    ("tasks",              "assigned_to_user_id",  "INTEGER"),
-    ("revenue_records",    "visibility",           "VARCHAR(20) NOT NULL DEFAULT 'private'"),
-    ("distribution_actions", "visibility",         "VARCHAR(20) NOT NULL DEFAULT 'team'"),
+    ("initiatives",        "visibility",             "VARCHAR(20) NOT NULL DEFAULT 'private'"),
+    ("tasks",              "visibility",             "VARCHAR(20) NOT NULL DEFAULT 'team'"),
+    ("tasks",              "assigned_to_user_id",    "INTEGER"),
+    ("revenue_records",    "visibility",             "VARCHAR(20) NOT NULL DEFAULT 'private'"),
+    ("distribution_actions", "visibility",           "VARCHAR(20) NOT NULL DEFAULT 'team'"),
+    # ── tasks table reconciliation (old CUA schema → Founder OS schema) ───────
+    # Production tasks table was created from the CUA era. The current model
+    # references columns that don't exist in the old schema. Adding them here
+    # so SELECT * on the tasks table no longer fails.
+    ("tasks",              "initiative_id",          "INTEGER"),
+    ("tasks",              "category",               "VARCHAR(50) DEFAULT 'build'"),
+    ("tasks",              "for_date",               "DATE"),
 ]
 
 
