@@ -124,8 +124,8 @@
     {% block content %}{% endblock %}
   </main>
 
-  <!-- ── PHANT global widget (elephant + panel + signals) ──────────────── -->
-  {% include "components/phant_panel.html" %}
+  <!-- ── PHANT global widget (optional — absent if phant package not loaded) ── -->
+  {% include "components/phant_panel.html" ignore missing %}
 
   {% if user is defined and user %}
   <script src="/static/js/phant.js"></script>
