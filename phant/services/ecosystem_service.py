@@ -59,6 +59,12 @@ def get_mytodo_context(db: Session, owner_user_id: int,
         }
     except Exception as e:  # noqa: BLE001 — product read must never crash PHANT
         log.warning("MyTodo ecosystem read failed: %s", e)
+        # Rollback so subsequent queries on the same DB session are not poisoned
+        # by a failed psycopg2 transaction (InFailedSqlTransaction).
+        try:
+            db.rollback()
+        except Exception:
+            pass
         return {"product": "mytodo", "available": False, "error": str(e)}
 
 
