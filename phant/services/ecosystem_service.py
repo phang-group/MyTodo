@@ -13,63 +13,32 @@ function returning a compact, structured snapshot — never the raw rows.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
 from typing import Any, Dict
 
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-import models  # MyTodo product models — read only
+import product_read  # product-layer read interface — no raw model access from here
 
 log = logging.getLogger("phant.ecosystem")
-
-
-def _visible_initiatives(db: Session, owner_user_id: int, is_founder: bool):
-    q = db.query(models.Initiative).filter_by(is_active=True)
-    if is_founder:
-        return q
-    return q.filter(or_(
-        models.Initiative.gateway_user_id == owner_user_id,
-        models.Initiative.visibility.in_(["team", "public"]),
-    ))
 
 
 def get_mytodo_context(db: Session, owner_user_id: int,
                        is_founder: bool = True) -> Dict[str, Any]:
     """A compact, read-only snapshot of MyTodo execution state."""
     try:
-        initiatives = _visible_initiatives(db, owner_user_id, is_founder).all()
-
-        today = date.today()
-        open_tasks = (
-            db.query(models.Task)
-            .filter(models.Task.gateway_user_id == owner_user_id,
-                    models.Task.status.in_(["open", "in_progress"]))
-            .all()
+        initiatives, total_count = product_read.get_active_initiatives(
+            db, owner_user_id, is_founder
         )
-        overdue = [t for t in open_tasks if t.for_date and t.for_date < today]
-
-        week_start = datetime.utcnow() - timedelta(days=7)
-        revenue_week = (
-            db.query(models.RevenueRecord)
-            .filter(models.RevenueRecord.gateway_user_id == owner_user_id,
-                    models.RevenueRecord.recorded_at >= week_start)
-            .all()
-        )
-        revenue_week_total = sum(r.amount or 0 for r in revenue_week)
-
-        pending_distribution = (
-            db.query(models.DistributionAction)
-            .filter(models.DistributionAction.gateway_user_id == owner_user_id,
-                    models.DistributionAction.status == "pending")
-            .count()
+        open_tasks, overdue = product_read.get_open_tasks(db, owner_user_id)
+        revenue_week_total = product_read.get_week_revenue(db, owner_user_id)
+        pending_distribution = product_read.get_pending_distribution_count(
+            db, owner_user_id
         )
 
-        # The initiative whose distribution most lags its build — the typical gap.
         bottleneck = None
         worst_gap = -1
         for i in initiatives:
-            gap = (i.build_score or 0) - (i.distribution_score or 0)
+            gap = i["build"] - i["distribution"]
             if gap > worst_gap:
                 worst_gap = gap
                 bottleneck = i
@@ -77,24 +46,14 @@ def get_mytodo_context(db: Session, owner_user_id: int,
         return {
             "product": "mytodo",
             "available": True,
-            "active_initiatives": len(initiatives),
-            "open_tasks": len(open_tasks),
-            "overdue_tasks": len(overdue),
+            "active_initiatives": total_count,
+            "open_tasks": open_tasks,
+            "overdue_tasks": overdue,
             "revenue_last_7d": revenue_week_total,
             "pending_distribution_actions": pending_distribution,
-            "initiatives": [
-                {
-                    "name": i.name,
-                    "stage": i.stage,
-                    "build": i.build_score or 0,
-                    "distribution": i.distribution_score or 0,
-                    "revenue": i.revenue_score or 0,
-                    "revenue_total": i.revenue_total or 0,
-                }
-                for i in initiatives[:8]
-            ],
+            "initiatives": initiatives,
             "primary_bottleneck": (
-                {"initiative": bottleneck.name, "build_minus_distribution": worst_gap}
+                {"initiative": bottleneck["name"], "build_minus_distribution": worst_gap}
                 if bottleneck and worst_gap > 0 else None
             ),
         }
